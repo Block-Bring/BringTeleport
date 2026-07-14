@@ -146,7 +146,7 @@ public final class WaypointCommand {
     private static int executeReload(CommandContext<CommandSourceStack> ctx, PlayerWaypointsPlugin plugin) {
         try {
             CommandSourceStack source = ctx.getSource();
-            if (!source.getSender().hasPermission("waypoint.reload")) {
+            if (!source.getSender().hasPermission("playerwaypoints.reload")) {
                 source.getSender().sendMessage(getLocaleMessage(plugin, "waypoint.error.no-permission"));
                 return 0;
             }
@@ -181,7 +181,7 @@ public final class WaypointCommand {
                 return 1;
             }
 
-            if (!player.hasPermission("waypoint.add")) {
+            if (!player.hasPermission("playerwaypoints.add")) {
                 player.sendMessage(getLocaleMessage(plugin, "waypoint.error.no-permission"));
                 return 0;
             }
@@ -252,7 +252,7 @@ public final class WaypointCommand {
                 return 1;
             }
 
-            if (!player.hasPermission("waypoint.del")) {
+            if (!player.hasPermission("playerwaypoints.del")) {
                 player.sendMessage(getLocaleMessage(plugin, "waypoint.error.no-permission"));
                 return 0;
             }
@@ -299,7 +299,7 @@ public final class WaypointCommand {
                 return 1;
             }
 
-            if (!player.hasPermission("waypoint.info")) {
+            if (!player.hasPermission("playerwaypoints.info")) {
                 player.sendMessage(getLocaleMessage(plugin, "waypoint.error.no-permission"));
                 return 0;
             }
@@ -387,7 +387,7 @@ public final class WaypointCommand {
                 return 1;
             }
 
-            if (!player.hasPermission("waypoint.tp")) {
+            if (!player.hasPermission("playerwaypoints.tp")) {
                 player.sendMessage(getLocaleMessage(plugin, "waypoint.error.no-permission"));
                 return 0;
             }

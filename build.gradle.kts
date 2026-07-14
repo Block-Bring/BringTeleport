@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "top.imbring"
-version = "0.3.0"
+version = "0.3.1"
 
 repositories {
     mavenCentral()
@@ -47,7 +47,7 @@ tasks {
 
     shadowJar {
         archiveClassifier.set("")
-        archiveBaseName.set(rootProject.name)
+        archiveBaseName.set("PlayerWaypoints")
         archiveVersion.set(version as String)
         mergeServiceFiles()
     }

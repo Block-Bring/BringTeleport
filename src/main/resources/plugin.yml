@@ -7,27 +7,27 @@ main: top.imbring.playerwaypoints.PlayerWaypointsPlugin
 commands: { }
 
 permissions:
-  waypoint.add:
+  playerwaypoints.add:
     description: 创建路径点
     default: true
-  waypoint.del:
+  playerwaypoints.del:
     description: 删除路径点
     default: true
-  waypoint.info:
+  playerwaypoints.info:
     description: 查看路径点信息
     default: true
-  waypoint.tp:
+  playerwaypoints.tp:
     description: 传送至路径点
     default: true
-  waypoint.reload:
+  playerwaypoints.reload:
     description: 重载插件配置文件
     default: op
-  waypoint.*:
-    description: 所有 waypoint 权限
+  playerwaypoints.*:
+    description: 所有 playerwaypoints 权限
     default: op
     children:
-      waypoint.add: true
-      waypoint.del: true
-      waypoint.info: true
-      waypoint.tp: true
-      waypoint.reload: true
+      playerwaypoints.add: true
+      playerwaypoints.del: true
+      playerwaypoints.info: true
+      playerwaypoints.tp: true
+      playerwaypoints.reload: true

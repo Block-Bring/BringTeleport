@@ -15,15 +15,15 @@
 
 | 命令 | 说明 | 权限 |
 |---|---|---|
-| `/waypoint add public <name>` | 创建公有路径点 | waypoint.add |
-| `/waypoint add private <name>` | 创建私有路径点 | waypoint.add |
-| `/waypoint del public <name>` | 删除公有路径点 | waypoint.del |
-| `/waypoint del private <name>` | 删除私有路径点 | waypoint.del |
-| `/waypoint info public <name>` | 查看公有路径点信息 | waypoint.info |
-| `/waypoint info private <name>` | 查看私有路径点信息 | waypoint.info |
-| `/waypoint tp public <name>` | 传送到公有路径点 | waypoint.tp |
-| `/waypoint tp private <name>` | 传送到私有路径点 | waypoint.tp |
-| `/waypoint reload` | 重载配置和语言文件 | waypoint.reload |
+| `/waypoint add public <name>` | 创建公有路径点 | playerwaypoints.add |
+| `/waypoint add private <name>` | 创建私有路径点 | playerwaypoints.add |
+| `/waypoint del public <name>` | 删除公有路径点 | playerwaypoints.del |
+| `/waypoint del private <name>` | 删除私有路径点 | playerwaypoints.del |
+| `/waypoint info public <name>` | 查看公有路径点信息 | playerwaypoints.info |
+| `/waypoint info private <name>` | 查看私有路径点信息 | playerwaypoints.info |
+| `/waypoint tp public <name>` | 传送到公有路径点 | playerwaypoints.tp |
+| `/waypoint tp private <name>` | 传送到私有路径点 | playerwaypoints.tp |
+| `/waypoint reload` | 重载配置和语言文件 | playerwaypoints.reload |
 | `/waypoint help` | 显示帮助 | - |
 
 别名：`/wp`
@@ -31,15 +31,15 @@
 ## 权限
 
 ```
-waypoint.add    默认 true   创建路径点
-waypoint.del    默认 true   删除路径点
-waypoint.info   默认 true   查看路径点信息
-waypoint.tp     默认 true   传送至路径点
-waypoint.reload 默认 op     重载插件
-waypoint.*      默认 op     以上所有
+playerwaypoints.add    默认 true   创建路径点
+playerwaypoints.del    默认 true   删除路径点
+playerwaypoints.info   默认 true   查看路径点信息
+playerwaypoints.tp     默认 true   传送至路径点
+playerwaypoints.reload 默认 op     重载插件
+playerwaypoints.*      默认 op     以上所有
 ```
 
-用 LuckPerms 的话直接 `lp user <玩家> permission set waypoint.* true` 就行。
+用 LuckPerms 的话直接 `lp user <玩家> permission set playerwaypoints.* true` 就行。
 
 ## 配置
 
