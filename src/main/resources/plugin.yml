@@ -7,7 +7,7 @@ main: top.imbring.playerwaypoints.PlayerWaypointsPlugin
 commands: { }
 
 permissions:
-  playerwaypoints.add:
+  playerwaypoints.create:
     description: 创建路径点
     default: true
   playerwaypoints.del:
@@ -26,7 +26,7 @@ permissions:
     description: 所有 playerwaypoints 权限
     default: op
     children:
-      playerwaypoints.add: true
+      playerwaypoints.create: true
       playerwaypoints.del: true
       playerwaypoints.info: true
       playerwaypoints.tp: true

@@ -15,8 +15,8 @@
 
 | 命令 | 说明 | 权限 |
 |---|---|---|
-| `/waypoint add public <name>` | 创建公有路径点 | playerwaypoints.add |
-| `/waypoint add private <name>` | 创建私有路径点 | playerwaypoints.add |
+| `/waypoint create public <name>` | 创建公有路径点 | playerwaypoints.create |
+| `/waypoint create private <name>` | 创建私有路径点 | playerwaypoints.create |
 | `/waypoint del public <name>` | 删除公有路径点 | playerwaypoints.del |
 | `/waypoint del private <name>` | 删除私有路径点 | playerwaypoints.del |
 | `/waypoint info public <name>` | 查看公有路径点信息 | playerwaypoints.info |
@@ -31,7 +31,7 @@
 ## 权限
 
 ```
-playerwaypoints.add    默认 true   创建路径点
+playerwaypoints.create    默认 true   创建路径点
 playerwaypoints.del    默认 true   删除路径点
 playerwaypoints.info   默认 true   查看路径点信息
 playerwaypoints.tp     默认 true   传送至路径点

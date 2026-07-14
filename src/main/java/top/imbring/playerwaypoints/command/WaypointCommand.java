@@ -41,13 +41,13 @@ public final class WaypointCommand {
                 .executes(ctx -> executeReload(ctx, plugin)))
             .then(literal("help")
                 .executes(ctx -> executeHelp(ctx, plugin)))
-            .then(literal("add")
+            .then(literal("create")
                 .then(literal(TYPE_PUBLIC)
                     .then(argument("name", string)
-                        .executes(ctx -> executeAdd(ctx, plugin, WaypointType.PUBLIC))))
+                        .executes(ctx -> executeCreate(ctx, plugin, WaypointType.PUBLIC))))
                 .then(literal(TYPE_PRIVATE)
                     .then(argument("name", string)
-                        .executes(ctx -> executeAdd(ctx, plugin, WaypointType.PRIVATE)))))
+                        .executes(ctx -> executeCreate(ctx, plugin, WaypointType.PRIVATE)))))
             .then(literal("del")
                 .then(literal(TYPE_PUBLIC)
                     .then(argument("name", string)
@@ -173,7 +173,7 @@ public final class WaypointCommand {
         }
     }
 
-    private static int executeAdd(CommandContext<CommandSourceStack> ctx, PlayerWaypointsPlugin plugin, WaypointType type) {
+    private static int executeCreate(CommandContext<CommandSourceStack> ctx, PlayerWaypointsPlugin plugin, WaypointType type) {
         try {
             CommandSourceStack source = ctx.getSource();
             if (!(source.getSender() instanceof Player player)) {
@@ -181,7 +181,7 @@ public final class WaypointCommand {
                 return 1;
             }
 
-            if (!player.hasPermission("playerwaypoints.add")) {
+            if (!player.hasPermission("playerwaypoints.create")) {
                 player.sendMessage(getLocaleMessage(plugin, "waypoint.error.no-permission"));
                 return 0;
             }
@@ -211,14 +211,14 @@ public final class WaypointCommand {
             if (type == WaypointType.PUBLIC) {
                 Optional<Waypoint> existing = manager.getWaypoint(name, WaypointType.PUBLIC, null);
                 if (existing.isPresent()) {
-                    player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.add.duplicate-public",
+                    player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.create.duplicate-public",
                         Map.of("name", name)));
                     return 1;
                 }
             } else {
                 Optional<Waypoint> existing = manager.getWaypoint(name, WaypointType.PRIVATE, player.getUniqueId());
                 if (existing.isPresent()) {
-                    player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.add.duplicate-private",
+                    player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.create.duplicate-private",
                         Map.of("name", name)));
                     return 1;
                 }
@@ -229,10 +229,10 @@ public final class WaypointCommand {
 
             if (manager.addWaypoint(waypoint)) {
                 String typeLabel = type == WaypointType.PUBLIC ? "public" : "private";
-                player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.add.success",
+                player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.create.success",
                     Map.of("name", name, "type", typeLabel)));
             } else {
-                player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.add.fail",
+                player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.create.fail",
                     Map.of("name", name)));
             }
 

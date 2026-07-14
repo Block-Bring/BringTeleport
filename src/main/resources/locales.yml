@@ -7,8 +7,8 @@ waypoint:
   help: |
     <gold>/waypoint</gold> <dark_gray>- 路径点管理</dark_gray>
     <dark_gray>━━━━━━━━━━━━━━━━━━━━━━</dark_gray>
-    <gold>/waypoint add public <name></gold> <dark_gray>- 创建公有路径点</dark_gray>
-    <gold>/waypoint add private <name></gold> <dark_gray>- 创建私有路径点</dark_gray>
+    <gold>/waypoint create public <name></gold> <dark_gray>- 创建公有路径点</dark_gray>
+    <gold>/waypoint create private <name></gold> <dark_gray>- 创建私有路径点</dark_gray>
     <gold>/waypoint del public <name></gold> <dark_gray>- 删除公有路径点</dark_gray>
     <gold>/waypoint del private <name></gold> <dark_gray>- 删除私有路径点</dark_gray>
     <gold>/waypoint info public <name></gold> <dark_gray>- 查看公有路径点信息</dark_gray>
@@ -17,7 +17,7 @@ waypoint:
     <gold>/waypoint tp private <name></gold> <dark_gray>- 传送到私有路径点</dark_gray>
     <gold>/waypoint reload</gold> <dark_gray>- 重载配置文件</dark_gray>
     <gold>/waypoint help</gold> <dark_gray>- 显示此帮助</dark_gray>
-  add:
+  create:
     success: "<green>✔</green> <gray>路径点 </gray><yellow>{name}</yellow><gray> ({type}) 已创建</gray>"
     duplicate-public: "<red>公有路径点 </red><yellow>{name}</yellow><red> 已存在</red>"
     duplicate-private: "<red>你的私有路径点 </red><yellow>{name}</yellow><red> 已存在</red>"
