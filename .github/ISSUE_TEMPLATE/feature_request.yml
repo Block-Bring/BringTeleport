@@ -1,0 +1,25 @@
+name: 功能建议
+description: 想要个新功能或者改进
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 相关痛点
+      description: 是什么场景/需求让你想要这个功能？
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: 你想要的解决方案
+      description: 描述一下你理想中这个功能怎么用
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 其他方案
+      description: 有没有考虑过其他替代办法？

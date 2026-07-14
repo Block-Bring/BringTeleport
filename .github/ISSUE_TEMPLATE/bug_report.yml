@@ -1,0 +1,45 @@
+name: Bug 反馈
+description: 报告插件的问题或崩溃
+labels: [bug]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: 问题描述
+      description: 发生了什么？你期望的是什么？
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 怎么才能触发这个问题？
+      placeholder: |
+        1. 输入 /waypoint add ...
+        2. 然后 ...
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: 插件版本
+      description: plugins/PlayerWaypoints/ 目录下的 jar 文件名
+    validations:
+      required: true
+
+  - type: input
+    id: server
+    attributes:
+      label: 服务端版本
+      description: 跑 /version 输出的第一行
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 控制台日志
+      description: 如果有报错，贴一下相关日志（不要截图）
+      render: text
