@@ -1,6 +1,6 @@
 # PlayerWaypoints
 
-一个 Paper 26.1.2 的路径点插件。
+一个 Paper 26.1.2 的玩家路径点插件。
 
 ## 功能
 
