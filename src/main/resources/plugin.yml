@@ -1,0 +1,33 @@
+name: ${name}
+version: ${version}
+api-version: 26.1
+author: Block_Bring
+main: top.imbring.playerwaypoints.PlayerWaypointsPlugin
+
+commands: { }
+
+permissions:
+  waypoint.add:
+    description: 创建路径点
+    default: true
+  waypoint.del:
+    description: 删除路径点
+    default: true
+  waypoint.info:
+    description: 查看路径点信息
+    default: true
+  waypoint.tp:
+    description: 传送至路径点
+    default: true
+  waypoint.reload:
+    description: 重载插件配置文件
+    default: op
+  waypoint.*:
+    description: 所有 waypoint 权限
+    default: op
+    children:
+      waypoint.add: true
+      waypoint.del: true
+      waypoint.info: true
+      waypoint.tp: true
+      waypoint.reload: true

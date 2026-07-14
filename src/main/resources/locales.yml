@@ -1,0 +1,49 @@
+# ========== 路径点 ==========
+waypoint:
+  # 路径点类型名称（在 info 等命令中显示）
+  type:
+    public: "公有"
+    private: "私有"
+  help: |
+    <gold>/waypoint</gold> <dark_gray>- 路径点管理</dark_gray>
+    <dark_gray>━━━━━━━━━━━━━━━━━━━━━━</dark_gray>
+    <gold>/waypoint add public <name></gold> <dark_gray>- 创建公有路径点</dark_gray>
+    <gold>/waypoint add private <name></gold> <dark_gray>- 创建私有路径点</dark_gray>
+    <gold>/waypoint del public <name></gold> <dark_gray>- 删除公有路径点</dark_gray>
+    <gold>/waypoint del private <name></gold> <dark_gray>- 删除私有路径点</dark_gray>
+    <gold>/waypoint info public <name></gold> <dark_gray>- 查看公有路径点信息</dark_gray>
+    <gold>/waypoint info private <name></gold> <dark_gray>- 查看私有路径点信息</dark_gray>
+    <gold>/waypoint tp public <name></gold> <dark_gray>- 传送到公有路径点</dark_gray>
+    <gold>/waypoint tp private <name></gold> <dark_gray>- 传送到私有路径点</dark_gray>
+    <gold>/waypoint reload</gold> <dark_gray>- 重载配置文件</dark_gray>
+    <gold>/waypoint help</gold> <dark_gray>- 显示此帮助</dark_gray>
+  add:
+    success: "<green>✔</green> <gray>路径点 </gray><yellow>{name}</yellow><gray> ({type}) 已创建</gray>"
+    duplicate-public: "<red>公有路径点 </red><yellow>{name}</yellow><red> 已存在</red>"
+    duplicate-private: "<red>你的私有路径点 </red><yellow>{name}</yellow><red> 已存在</red>"
+    fail: "<red>路径点创建失败，名称可能已存在</red>"
+  del:
+    success: "<green>✔</green> <gray>路径点 </gray><yellow>{name}</yellow><gray> ({type}) 已删除</gray>"
+    not-found: "<red>路径点 </red><yellow>{name}</yellow><red> ({type}) 不存在</red>"
+  info:
+    template: |
+      <gold>===== <green>路径点信息 <gold>=====
+      <gold>名称：<green>{name}
+      <gold>类型：<green>{type}
+      <gold>创建者：<green>{creator}
+      <gold>创建时间：<green>{date}
+      <gold>世界：<green>{world}
+      <gold>坐标：<green>{x} {y} {z}
+      <gold>=========================
+    not-found: "<red>路径点 </red><yellow>{name}</yellow><red> ({type}) 不存在</red>"
+  tp:
+    success: "<green>✔</green> <gray>已传送到路径点 </gray><yellow>{name}</yellow>"
+    not-found: "<red>路径点 </red><yellow>{name}</yellow><red> ({type}) 不存在</red>"
+    world-not-loaded: "<red>路径点所在世界 </red><yellow>{world}</yellow><red> 未加载</red>"
+  reload:
+    success: "<green>✔</green> <gray>配置文件已重载</gray>"
+  error:
+    player-only: "<red>只有玩家才能使用此命令</red>"
+    name-required: "<red>请输入有效的路径点名称</red>"
+    name-too-long: "<red>路径点名称不能超过 32 个字符</red>"
+    no-permission: "<red>你没有权限执行此命令</red>"
