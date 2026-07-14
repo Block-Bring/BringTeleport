@@ -205,7 +205,7 @@ public final class WaypointCommand {
             }
 
             WaypointManager manager = plugin.getWaypointManager();
-            UUID ownerUuid = (type == WaypointType.PRIVATE) ? player.getUniqueId() : null;
+            UUID ownerUuid = player.getUniqueId();
 
             // Check for duplicates manually for better error messages
             if (type == WaypointType.PUBLIC) {
