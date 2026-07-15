@@ -24,6 +24,7 @@
 | `/waypoint tp public <name>` | 传送到公有路径点 | playerwaypoints.tp |
 | `/waypoint tp private <name>` | 传送到私有路径点 | playerwaypoints.tp |
 | `/waypoint tp back [index]` | 返回传送前的位置（index 默认为 1） | playerwaypoints.tp |
+| `/waypoint tp back undo` | 撤销上次 back，回到 back 前的位置 | playerwaypoints.tp |
 | `/waypoint reload` | 重载配置和语言文件 | playerwaypoints.reload |
 | `/waypoint help` | 显示帮助 | - |
 

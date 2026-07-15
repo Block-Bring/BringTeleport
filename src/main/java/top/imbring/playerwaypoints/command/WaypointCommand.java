@@ -142,6 +142,8 @@ public final class WaypointCommand {
                         .executes(ctx -> executeTp(ctx, plugin, WaypointType.PRIVATE))))
                 .then(literal("back")
                     .executes(ctx -> executeTpBack(ctx, plugin, 1))
+                    .then(literal("undo")
+                        .executes(ctx -> executeTpBackUndo(ctx, plugin)))
                     .then(argument("index", IntegerArgumentType.integer(1))
                         .executes(ctx -> executeTpBack(ctx, plugin, IntegerArgumentType.getInteger(ctx, "index"))))))
             .build();
@@ -430,6 +432,7 @@ public final class WaypointCommand {
                 return 1;
             }
 
+            plugin.getTeleportHistory().record(player, player.getLocation());
             player.teleportAsync(location);
             player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.tp.success",
                 Map.of("name", name)));
@@ -468,12 +471,45 @@ public final class WaypointCommand {
             }
             Location target = history.getBackLocation(player, steps);
 
+            // Save current position for undo (don't record this teleport in history)
+            history.setLastBackSource(player, player.getLocation());
+
             player.teleportAsync(target);
             player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.tp.back.success",
                 Map.of("steps", String.valueOf(steps))));
             return 1;
         } catch (Exception e) {
             plugin.getLogger().log(Level.SEVERE, "Failed to execute waypoint tp back command", e);
+            ctx.getSource().getSender().sendMessage(Component.text("An internal error occurred. Please try again."));
+            return 0;
+        }
+    }
+
+    private static int executeTpBackUndo(CommandContext<CommandSourceStack> ctx, PlayerWaypointsPlugin plugin) {
+        try {
+            CommandSourceStack source = ctx.getSource();
+            if (!(source.getSender() instanceof Player player)) {
+                source.getSender().sendMessage(getLocaleMessage(plugin, "waypoint.error.player-only"));
+                return 1;
+            }
+
+            if (!player.hasPermission("playerwaypoints.tp")) {
+                player.sendMessage(getLocaleMessage(plugin, "waypoint.error.no-permission"));
+                return 0;
+            }
+
+            TeleportHistory history = plugin.getTeleportHistory();
+            Location target = history.getAndClearLastBackSource(player);
+            if (target == null) {
+                player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.tp.back.undo-none", null));
+                return 1;
+            }
+
+            player.teleportAsync(target);
+            player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.tp.back.undo-success", null));
+            return 1;
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.SEVERE, "Failed to execute waypoint tp back undo command", e);
             ctx.getSource().getSender().sendMessage(Component.text("An internal error occurred. Please try again."));
             return 0;
         }

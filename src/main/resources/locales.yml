@@ -16,6 +16,7 @@ waypoint:
     <gold>/waypoint tp public <name></gold> <dark_gray>- 传送到公有路径点</dark_gray>
     <gold>/waypoint tp private <name></gold> <dark_gray>- 传送到私有路径点</dark_gray>
     <gold>/waypoint tp back [index]</gold> <dark_gray>- 返回传送前的位置</dark_gray>
+    <gold>/waypoint tp back undo</gold> <dark_gray>- 撤销上次 back</dark_gray>
     <gold>/waypoint reload</gold> <dark_gray>- 重载配置文件</dark_gray>
     <gold>/waypoint help</gold> <dark_gray>- 显示此帮助</dark_gray>
   create:
@@ -45,6 +46,8 @@ waypoint:
       success: "<green>✔</green> <gray>已返回 {steps} 次传送前的位置</gray>"
       no-history: "<red>你还没有进行过传送</red>"
       steps-exceed: "<red>传送历史最多可回溯 {available} 步，无法回溯 {steps} 步</red>"
+      undo-none: "<red>没有可撤销的 back 操作</red>"
+      undo-success: "<green>✔</green> <gray>已撤销 back，回到传送前的位置</gray>"
   reload:
     success: "<green>✔</green> <gray>配置文件已重载</gray>"
   error:

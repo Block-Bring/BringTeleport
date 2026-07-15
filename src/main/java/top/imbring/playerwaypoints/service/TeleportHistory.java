@@ -10,6 +10,7 @@ public class TeleportHistory {
 
     private static final int MAX_HISTORY = 20;
     private final Map<UUID, List<Location>> history = new HashMap<>();
+    private final Map<UUID, Location> lastBackSource = new HashMap<>();
 
     public void record(Player player, Location location) {
         List<Location> list = history.computeIfAbsent(player.getUniqueId(), k -> new ArrayList<>());
@@ -30,7 +31,22 @@ public class TeleportHistory {
         return list == null ? 0 : list.size();
     }
 
+    /** Save where the player was right before /waypoint tp back was used. */
+    public void setLastBackSource(Player player, Location location) {
+        lastBackSource.put(player.getUniqueId(), location.clone());
+    }
+
+    /** Retrieve and clear the undo location. */
+    public @Nullable Location getAndClearLastBackSource(Player player) {
+        return lastBackSource.remove(player.getUniqueId());
+    }
+
+    public boolean hasUndo(Player player) {
+        return lastBackSource.containsKey(player.getUniqueId());
+    }
+
     public void clear(Player player) {
         history.remove(player.getUniqueId());
+        lastBackSource.remove(player.getUniqueId());
     }
 }

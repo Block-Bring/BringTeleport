@@ -3,7 +3,6 @@ package top.imbring.playerwaypoints;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import org.bukkit.plugin.java.JavaPlugin;
 import top.imbring.playerwaypoints.command.CommandManager;
-import top.imbring.playerwaypoints.listener.PlayerTeleportListener;
 import top.imbring.playerwaypoints.locale.LocaleManager;
 import top.imbring.playerwaypoints.service.TeleportHistory;
 import top.imbring.playerwaypoints.service.WaypointManager;
@@ -25,10 +24,6 @@ public final class PlayerWaypointsPlugin extends JavaPlugin {
         this.localeManager = new LocaleManager(this);
         this.waypointManager = new WaypointManager(this);
         this.teleportHistory = new TeleportHistory();
-
-        getServer().getPluginManager().registerEvents(
-            new PlayerTeleportListener(this.teleportHistory), this
-        );
 
         // Register commands via Paper lifecycle
         getLifecycleManager().registerEventHandler(
