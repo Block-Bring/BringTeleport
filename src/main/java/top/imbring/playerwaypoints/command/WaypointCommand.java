@@ -1,5 +1,6 @@
 package top.imbring.playerwaypoints.command;
 
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
@@ -11,6 +12,7 @@ import org.bukkit.entity.Player;
 import top.imbring.playerwaypoints.PlayerWaypointsPlugin;
 import top.imbring.playerwaypoints.model.Waypoint;
 import top.imbring.playerwaypoints.model.Waypoint.WaypointType;
+import top.imbring.playerwaypoints.service.TeleportHistory;
 import top.imbring.playerwaypoints.service.WaypointManager;
 
 import java.time.LocalDateTime;
@@ -137,7 +139,11 @@ public final class WaypointCommand {
                             }
                             return builder.buildFuture();
                         })
-                        .executes(ctx -> executeTp(ctx, plugin, WaypointType.PRIVATE)))))
+                        .executes(ctx -> executeTp(ctx, plugin, WaypointType.PRIVATE))))
+                .then(literal("back")
+                    .executes(ctx -> executeTpBack(ctx, plugin, 1))
+                    .then(argument("index", IntegerArgumentType.integer(1))
+                        .executes(ctx -> executeTpBack(ctx, plugin, IntegerArgumentType.getInteger(ctx, "index"))))))
             .build();
 
         commands.register(waypointNode, "Manage waypoints", List.of("wp"));
@@ -431,6 +437,37 @@ public final class WaypointCommand {
             return 1;
         } catch (Exception e) {
             plugin.getLogger().log(Level.SEVERE, "Failed to execute waypoint tp command", e);
+            ctx.getSource().getSender().sendMessage(Component.text("An internal error occurred. Please try again."));
+            return 0;
+        }
+    }
+
+    private static int executeTpBack(CommandContext<CommandSourceStack> ctx, PlayerWaypointsPlugin plugin, int steps) {
+        try {
+            CommandSourceStack source = ctx.getSource();
+            if (!(source.getSender() instanceof Player player)) {
+                source.getSender().sendMessage(getLocaleMessage(plugin, "waypoint.error.player-only"));
+                return 1;
+            }
+
+            if (!player.hasPermission("playerwaypoints.tp")) {
+                player.sendMessage(getLocaleMessage(plugin, "waypoint.error.no-permission"));
+                return 0;
+            }
+
+            TeleportHistory history = plugin.getTeleportHistory();
+            Location target = history.getBackLocation(player, steps);
+            if (target == null) {
+                player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.tp.back.no-history", null));
+                return 1;
+            }
+
+            player.teleportAsync(target);
+            player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.tp.back.success",
+                Map.of("steps", String.valueOf(steps))));
+            return 1;
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.SEVERE, "Failed to execute waypoint tp back command", e);
             ctx.getSource().getSender().sendMessage(Component.text("An internal error occurred. Please try again."));
             return 0;
         }

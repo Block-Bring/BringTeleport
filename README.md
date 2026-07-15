@@ -23,6 +23,7 @@
 | `/waypoint info private <name>` | 查看私有路径点信息 | playerwaypoints.info |
 | `/waypoint tp public <name>` | 传送到公有路径点 | playerwaypoints.tp |
 | `/waypoint tp private <name>` | 传送到私有路径点 | playerwaypoints.tp |
+| `/waypoint tp back [index]` | 返回传送前的位置（index 默认为 1） | playerwaypoints.tp |
 | `/waypoint reload` | 重载配置和语言文件 | playerwaypoints.reload |
 | `/waypoint help` | 显示帮助 | - |
 
