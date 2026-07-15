@@ -62,4 +62,4 @@ playerwaypoints.*      默认 op     以上所有
 
 ## 安装
 
-把 jar 丢到 `plugins/` 目录，重启服务器或者用 PlugmanX 之类的加载即可。
+把 jar 文件放到 `plugins/` 目录下，然后重启服务器即可。

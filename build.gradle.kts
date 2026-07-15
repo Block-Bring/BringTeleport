@@ -46,9 +46,7 @@ tasks {
     }
 
     shadowJar {
-        archiveClassifier.set("")
-        archiveBaseName.set("PlayerWaypoints")
-        archiveVersion.set(version as String)
+        archiveFileName.set("PlayerWaypoints-Paper-26.1.2-${version}.jar")
         mergeServiceFiles()
     }
 
