@@ -25,6 +25,11 @@ public class TeleportHistory {
         return list.get(steps - 1).clone();
     }
 
+    public int getHistorySize(Player player) {
+        List<Location> list = history.get(player.getUniqueId());
+        return list == null ? 0 : list.size();
+    }
+
     public void clear(Player player) {
         history.remove(player.getUniqueId());
     }

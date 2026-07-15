@@ -456,11 +456,17 @@ public final class WaypointCommand {
             }
 
             TeleportHistory history = plugin.getTeleportHistory();
-            Location target = history.getBackLocation(player, steps);
-            if (target == null) {
+            int available = history.getHistorySize(player);
+            if (available == 0) {
                 player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.tp.back.no-history", null));
                 return 1;
             }
+            if (steps > available) {
+                player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.tp.back.steps-exceed",
+                    Map.of("steps", String.valueOf(steps), "available", String.valueOf(available))));
+                return 1;
+            }
+            Location target = history.getBackLocation(player, steps);
 
             player.teleportAsync(target);
             player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.tp.back.success",

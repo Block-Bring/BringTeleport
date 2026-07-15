@@ -43,7 +43,8 @@ waypoint:
     world-not-loaded: "<red>路径点所在世界 </red><yellow>{world}</yellow><red> 未加载</red>"
     back:
       success: "<green>✔</green> <gray>已返回 {steps} 次传送前的位置</gray>"
-      no-history: "<red>没有可返回的传送历史记录</red>"
+      no-history: "<red>你还没有进行过传送</red>"
+      steps-exceed: "<red>传送历史最多可回溯 {available} 步，无法回溯 {steps} 步</red>"
   reload:
     success: "<green>✔</green> <gray>配置文件已重载</gray>"
   error:
