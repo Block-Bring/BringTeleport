@@ -50,14 +50,22 @@ public final class WaypointCommand {
                 .then(literal(TYPE_PRIVATE)
                     .then(argument("name", string)
                         .executes(ctx -> executeCreate(ctx, plugin, WaypointType.PRIVATE)))))
-            .then(literal("del")
+            .then(literal("delete")
                 .then(literal(TYPE_PUBLIC)
                     .then(argument("name", string)
                         .suggests((ctx, builder) -> {
                             WaypointManager mgr = plugin.getWaypointManager();
                             if (mgr != null) {
-                                mgr.getPublicWaypoints().stream()
-                                    .map(Waypoint::getName)
+                                var stream = mgr.getPublicWaypoints().stream();
+                                // Regular players without del.other can only tab-complete
+                                // their own public waypoints
+                                CommandSourceStack source = ctx.getSource();
+                                if (source.getSender() instanceof Player player
+                                    && !player.hasPermission("playerwaypoints.del.other")) {
+                                    stream = stream.filter(
+                                        wp -> player.getUniqueId().equals(wp.getOwnerUuid()));
+                                }
+                                stream.map(Waypoint::getName)
                                     .filter(name -> name.startsWith(builder.getRemaining()))
                                     .forEach(builder::suggest);
                             }
@@ -281,15 +289,33 @@ public final class WaypointCommand {
             WaypointManager manager = plugin.getWaypointManager();
             UUID ownerUuid = (type == WaypointType.PRIVATE) ? player.getUniqueId() : null;
 
+            // For public waypoints, check ownership
+            if (type == WaypointType.PUBLIC) {
+                Optional<Waypoint> existing = manager.getWaypoint(name, WaypointType.PUBLIC, null);
+                if (existing.isEmpty()) {
+                    player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.delete.not-found",
+                        Map.of("name", name, "type", getTypeLabel(plugin, WaypointType.PUBLIC))));
+                    return 1;
+                }
+
+                boolean isOwner = existing.get().getOwnerUuid() != null
+                    && existing.get().getOwnerUuid().equals(player.getUniqueId());
+
+                if (!isOwner && !player.hasPermission("playerwaypoints.del.other")) {
+                    player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.delete.not-owner", null));
+                    return 0;
+                }
+            }
+
             if (!manager.deleteWaypoint(name, type, ownerUuid)) {
                 String typeLabel = type == WaypointType.PUBLIC ? "public" : "private";
-                player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.del.not-found",
+                player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.delete.not-found",
                     Map.of("name", name, "type", typeLabel)));
                 return 1;
             }
 
             String typeLabel = type == WaypointType.PUBLIC ? "public" : "private";
-            player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.del.success",
+            player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.delete.success",
                 Map.of("name", name, "type", typeLabel)));
             return 1;
         } catch (Exception e) {

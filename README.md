@@ -17,8 +17,8 @@
 |---|---|---|
 | `/waypoint create public <name>` | 创建公有路径点 | playerwaypoints.create |
 | `/waypoint create private <name>` | 创建私有路径点 | playerwaypoints.create |
-| `/waypoint del public <name>` | 删除公有路径点 | playerwaypoints.del |
-| `/waypoint del private <name>` | 删除私有路径点 | playerwaypoints.del |
+| `/waypoint delete public <name>` | 删除公有路径点 | playerwaypoints.del |
+| `/waypoint delete private <name>` | 删除私有路径点 | playerwaypoints.del |
 | `/waypoint info public <name>` | 查看公有路径点信息 | playerwaypoints.info |
 | `/waypoint info private <name>` | 查看私有路径点信息 | playerwaypoints.info |
 | `/waypoint tp public <name>` | 传送到公有路径点 | playerwaypoints.tp |
@@ -34,7 +34,8 @@
 
 ```
 playerwaypoints.create    默认 true   创建路径点
-playerwaypoints.del    默认 true   删除路径点
+playerwaypoints.del        默认 true   删除路径点
+playerwaypoints.del.other  默认 op     删除其他玩家的公有路径点
 playerwaypoints.info   默认 true   查看路径点信息
 playerwaypoints.tp     默认 true   传送至路径点
 playerwaypoints.reload 默认 op     重载插件

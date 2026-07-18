@@ -13,6 +13,9 @@ permissions:
   playerwaypoints.del:
     description: 删除路径点
     default: true
+  playerwaypoints.del.other:
+    description: 删除其他玩家创建的公有路径点
+    default: op
   playerwaypoints.info:
     description: 查看路径点信息
     default: true
@@ -28,6 +31,7 @@ permissions:
     children:
       playerwaypoints.create: true
       playerwaypoints.del: true
+      playerwaypoints.del.other: true
       playerwaypoints.info: true
       playerwaypoints.tp: true
       playerwaypoints.reload: true
