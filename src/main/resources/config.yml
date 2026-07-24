@@ -1,5 +1,22 @@
 # BringTeleport 配置文件
 # 作者: ${author}
 
+waypoint:
+  delete-confirmation:
+    # 是否启用删除确认
+    enabled: true
+    # 确认超时时间（秒），超过需重新输入删除命令
+    timeout: 10.0
+  teleport:
+    countdown:
+      # 是否启用传送倒计时
+      enabled: true
+      # 传送延迟（秒）
+      delay: 3.0
+      # 倒计时更新频率（秒），1 = 每秒更新，0.1 = 每 0.1 秒更新
+      interval: 1.0
+      # 倒计时显示方式: subtitle / title / both / chat
+      display: "subtitle"
+
 # 插件配置版本
-config-version: 1
+config-version: 2

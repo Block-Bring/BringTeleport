@@ -4,10 +4,10 @@ bringteleport:
     <green>═══ <white>BringTeleport</white> ═══</green>
 
     <dark_green>◈ 管理</dark_green>
-    <green>/bringteleport reload</green>  <dark_gray>重载配置文件</dark_gray>
-    <green>/bringteleport help</green>  <dark_gray>显示此帮助</dark_gray>
+    <green>/bringteleport reload</green>  <white>重载配置文件</dark_gray>
+    <green>/bringteleport help</green>  <white>显示此帮助</dark_gray>
   reload:
-    success: "<green>✔</green> <gray>配置文件已重载</gray>"
+    success: "<green>✔</green> <white>配置文件已重载</gray>"
 
 # ========== 路径点 ==========
 waypoint:
@@ -19,29 +19,33 @@ waypoint:
     <green>═══ <white>路径点管理</white> ═══</green>
 
     <dark_green>◈ 管理</dark_green>
-    <green>/waypoint create public <name></green>  <dark_gray>创建公有路径点</dark_gray>
-    <green>/waypoint create private <name></green>  <dark_gray>创建私有路径点</dark_gray>
-    <green>/waypoint delete public <name></green>  <dark_gray>删除公有路径点</dark_gray>
-    <green>/waypoint delete private <name></green>  <dark_gray>删除私有路径点</dark_gray>
+    <green>/waypoint create public <name></green>  <white>创建公有路径点</dark_gray>
+    <green>/waypoint create private <name></green>  <white>创建私有路径点</dark_gray>
+    <green>/waypoint delete public <name></green>  <white>删除公有路径点</dark_gray>
+    <green>/waypoint delete private <name></green>  <white>删除私有路径点</dark_gray>
 
     <dark_green>◈ 信息</dark_green>
-    <green>/waypoint info public <name></green>  <dark_gray>查看公有路径点信息</dark_gray>
-    <green>/waypoint info private <name></green>  <dark_gray>查看私有路径点信息</dark_gray>
+    <green>/waypoint info public <name></green>  <white>查看公有路径点信息</dark_gray>
+    <green>/waypoint info private <name></green>  <white>查看私有路径点信息</dark_gray>
 
     <dark_green>◈ 传送</dark_green>
-    <green>/waypoint tp public <name></green>  <dark_gray>传送到公有路径点</dark_gray>
-    <green>/waypoint tp private <name></green>  <dark_gray>传送到私有路径点</dark_gray>
-    <green>/waypoint tp back [index]</green>  <dark_gray>返回传送前的位置</dark_gray>
-    <green>/waypoint tp back undo</green>  <dark_gray>撤销上次 back</dark_gray>
+    <green>/waypoint tp public <name></green>  <white>传送到公有路径点</dark_gray>
+    <green>/waypoint tp private <name></green>  <white>传送到私有路径点</dark_gray>
+    <green>/waypoint tp back [index]</green>  <white>返回传送前的位置</dark_gray>
+    <green>/waypoint tp back undo</green>  <white>撤销上次 back</dark_gray>
   create:
-    success: "<green>✔</green> <gray>路径点 </gray><yellow>{name}</yellow><gray> ({type}) 已创建</gray>"
+    success: "<green>✔</green> <white>路径点 </gray><yellow>{name}</yellow><white> ({type}) 已创建</gray>"
     duplicate-public: "<red>公有路径点 </red><yellow>{name}</yellow><red> 已存在</red>"
     duplicate-private: "<red>你的私有路径点 </red><yellow>{name}</yellow><red> 已存在</red>"
     fail: "<red>路径点创建失败，名称可能已存在</red>"
   delete:
-    success: "<green>✔</green> <gray>路径点 </gray><yellow>{name}</yellow><gray> ({type}) 已删除</gray>"
+    success: "<green>✔</green> <white>路径点 </gray><yellow>{name}</yellow><white> ({type}) 已删除</gray>"
     not-found: "<red>路径点 </red><yellow>{name}</yellow><red> ({type}) 不存在</red>"
     not-owner: "<red>你不能删除其他玩家创建的公有路径点</red>"
+    confirm-required: "<gold>⚠</gold> <white>确认删除路径点 </gray><yellow>{name}</yellow><white> ？请在 </gray><yellow>{timeout}</yellow><white> 秒内输入 </gray><green>/waypoint confirm</green><white> 确认</gray>"
+    confirm-none: "<red>没有待确认的删除操作</red>"
+    confirm-expired: "<red>待确认的删除操作已过期（{timeout} 秒），请重新输入删除命令</red>"
+    confirm-success: "<green>✔</green> <white>路径点 </gray><yellow>{name}</yellow><white> 已确认删除</gray>"
   info:
     template: |
       <gold>===== <green>路径点信息 <gold>=====
@@ -54,15 +58,19 @@ waypoint:
       <gold>=========================
     not-found: "<red>路径点 </red><yellow>{name}</yellow><red> ({type}) 不存在</red>"
   tp:
-    success: "<green>✔</green> <gray>已传送到路径点 </gray><yellow>{name}</yellow>"
+    countdown:
+      title: "即将传送"
+      subtitle: "<yellow>{seconds}</yellow>"
+      chat: "<white>将在 <yellow>{seconds}</yellow> 秒后传送</gray>"
+    success: "<green>✔</green> <white>已传送到路径点 </gray><yellow>{name}</yellow>"
     not-found: "<red>路径点 </red><yellow>{name}</yellow><red> ({type}) 不存在</red>"
     world-not-loaded: "<red>路径点所在世界 </red><yellow>{world}</yellow><red> 未加载</red>"
     back:
-      success: "<green>✔</green> <gray>已返回 {steps} 次传送前的位置</gray>"
+      success: "<green>✔</green> <white>已返回 {steps} 次传送前的位置</gray>"
       no-history: "<red>你还没有进行过传送</red>"
       steps-exceed: "<red>传送历史最多可回溯 {available} 步，无法回溯 {steps} 步</red>"
       undo-none: "<red>没有可撤销的 back 操作</red>"
-      undo-success: "<green>✔</green> <gray>已撤销 back，回到传送前的位置</gray>"
+      undo-success: "<green>✔</green> <white>已撤销 back，回到传送前的位置</gray>"
   error:
     player-only: "<red>只有玩家才能使用此命令</red>"
     name-required: "<red>请输入有效的路径点名称</red>"

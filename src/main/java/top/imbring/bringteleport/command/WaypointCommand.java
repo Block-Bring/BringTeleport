@@ -6,9 +6,12 @@ import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.title.Title;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
+import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
 import top.imbring.bringteleport.BringTeleportPlugin;
 import top.imbring.bringteleport.model.Waypoint;
 import top.imbring.bringteleport.model.Waypoint.WaypointType;
@@ -17,6 +20,8 @@ import top.imbring.bringteleport.service.WaypointManager;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.Duration;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -30,6 +35,11 @@ public final class WaypointCommand {
 
     private static final String TYPE_PUBLIC = "public";
     private static final String TYPE_PRIVATE = "private";
+
+    private static final Map<UUID, PendingDeletion> PENDING_DELETIONS = new HashMap<>();
+    private static final Map<UUID, BukkitTask> ACTIVE_COUNTDOWNS = new HashMap<>();
+
+    private record PendingDeletion(String name, WaypointType type, long timestamp) {}
 
     private WaypointCommand() {
     }
@@ -86,6 +96,8 @@ public final class WaypointCommand {
                             return builder.buildFuture();
                         })
                         .executes(ctx -> executeDel(ctx, plugin, WaypointType.PRIVATE)))))
+            .then(literal("confirm")
+                .executes(ctx -> executeConfirm(ctx, plugin)))
             .then(literal("info")
                 .then(literal(TYPE_PUBLIC)
                     .then(argument("name", string)
@@ -288,6 +300,15 @@ public final class WaypointCommand {
                 }
             }
 
+            // If delete-confirmation is enabled, set pending instead of deleting
+            if (plugin.getConfig().getBoolean("waypoint.delete-confirmation.enabled", true)) {
+                double timeoutSec = plugin.getConfig().getDouble("waypoint.delete-confirmation.timeout", 10.0);
+                PENDING_DELETIONS.put(player.getUniqueId(), new PendingDeletion(name, type, System.currentTimeMillis()));
+                player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.delete.confirm-required",
+                    Map.of("name", name, "timeout", String.valueOf(timeoutSec))));
+                return 1;
+            }
+
             if (!manager.deleteWaypoint(name, type, ownerUuid)) {
                 String typeLabel = type == WaypointType.PUBLIC ? "public" : "private";
                 player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.delete.not-found",
@@ -301,6 +322,54 @@ public final class WaypointCommand {
             return 1;
         } catch (Exception e) {
             plugin.getLogger().log(Level.SEVERE, "Failed to execute waypoint del command", e);
+            ctx.getSource().getSender().sendMessage(Component.text("An internal error occurred. Please try again."));
+            return 0;
+        }
+    }
+
+    private static int executeConfirm(CommandContext<CommandSourceStack> ctx, BringTeleportPlugin plugin) {
+        try {
+            CommandSourceStack source = ctx.getSource();
+            if (!(source.getSender() instanceof Player player)) {
+                source.getSender().sendMessage(getLocaleMessage(plugin, "waypoint.error.player-only"));
+                return 1;
+            }
+
+            if (!player.hasPermission("bringteleport.waypoint.del")) {
+                player.sendMessage(getLocaleMessage(plugin, "waypoint.error.no-permission"));
+                return 0;
+            }
+
+            PendingDeletion pending = PENDING_DELETIONS.remove(player.getUniqueId());
+            if (pending == null) {
+                player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.delete.confirm-none", null));
+                return 1;
+            }
+
+            double timeoutSec = plugin.getConfig().getDouble("waypoint.delete-confirmation.timeout", 10.0);
+            long timeoutMs = (long) (timeoutSec * 1000);
+
+            if (System.currentTimeMillis() - pending.timestamp > timeoutMs) {
+                player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.delete.confirm-expired",
+                    Map.of("timeout", String.valueOf(timeoutSec))));
+                return 1;
+            }
+
+            WaypointManager manager = plugin.getWaypointManager();
+            UUID ownerUuid = (pending.type == WaypointType.PRIVATE) ? player.getUniqueId() : null;
+
+            if (!manager.deleteWaypoint(pending.name, pending.type, ownerUuid)) {
+                String typeLabel = pending.type == WaypointType.PUBLIC ? "public" : "private";
+                player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.delete.not-found",
+                    Map.of("name", pending.name, "type", typeLabel)));
+                return 1;
+            }
+
+            player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.delete.confirm-success",
+                Map.of("name", pending.name)));
+            return 1;
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.SEVERE, "Failed to execute waypoint confirm command", e);
             ctx.getSource().getSender().sendMessage(Component.text("An internal error occurred. Please try again."));
             return 0;
         }
@@ -436,6 +505,78 @@ public final class WaypointCommand {
             if (location == null) {
                 player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.tp.world-not-loaded",
                     Map.of("world", waypoint.getWorld())));
+                return 1;
+            }
+
+            boolean countdownEnabled = plugin.getConfig().getBoolean("waypoint.teleport.countdown.enabled", true);
+            double delaySec = plugin.getConfig().getDouble("waypoint.teleport.countdown.delay", 3.0);
+            if (countdownEnabled && delaySec > 0) {
+                double intervalSec = plugin.getConfig().getDouble("waypoint.teleport.countdown.interval", 1.0);
+                final double tickInterval = intervalSec > 0 ? intervalSec : 1.0;
+                String displayMode = plugin.getConfig().getString("waypoint.teleport.countdown.display", "subtitle");
+                Location playerLoc = player.getLocation();
+                Location targetLoc = location;
+                String wpName = name;
+
+                BukkitTask existing = ACTIVE_COUNTDOWNS.remove(player.getUniqueId());
+                if (existing != null) existing.cancel();
+
+                int totalSteps = (int) Math.ceil(delaySec / tickInterval);
+                long intervalTicks = Math.max(1, (long) (tickInterval * 20));
+
+                BukkitTask task = new BukkitRunnable() {
+                    int step = 0;
+
+                    @Override
+                    public void run() {
+                        if (!player.isOnline()) {
+                            ACTIVE_COUNTDOWNS.remove(player.getUniqueId());
+                            cancel();
+                            return;
+                        }
+
+                        if (step >= totalSteps) {
+                            ACTIVE_COUNTDOWNS.remove(player.getUniqueId());
+                            plugin.getTeleportHistory().record(player, playerLoc);
+                            player.teleportAsync(targetLoc);
+                            player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.tp.success",
+                                Map.of("name", wpName)));
+                            cancel();
+                            return;
+                        }
+
+                        double remain = delaySec - (step * tickInterval);
+                        if (remain < 0) remain = 0;
+                        String secStr;
+                        if (tickInterval >= 1.0 || Math.abs(remain - Math.round(remain)) < 0.01) {
+                            secStr = String.valueOf((int) Math.round(remain));
+                        } else {
+                            int decimals = tickInterval < 0.1 ? 2 : 1;
+                            secStr = String.format("%." + decimals + "f", remain);
+                        }
+
+                        Component cTitle = plugin.getLocaleManager().getMessage("waypoint.tp.countdown.title",
+                            Map.of("seconds", secStr));
+                        Component cSubtitle = plugin.getLocaleManager().getMessage("waypoint.tp.countdown.subtitle",
+                            Map.of("seconds", secStr));
+
+                        String chatRaw = plugin.getLocaleManager().getRaw("waypoint.tp.countdown.chat")
+                            .replace("{seconds}", secStr);
+
+                        var times = Title.Times.times(Duration.ZERO, Duration.ofSeconds(1), Duration.ofMillis(250));
+
+                        switch (displayMode) {
+                            case "title" -> player.showTitle(Title.title(cTitle, Component.empty(), times));
+                            case "subtitle" -> player.showTitle(Title.title(Component.empty(), cSubtitle, times));
+                            case "both" -> player.showTitle(Title.title(cTitle, cSubtitle, times));
+                            case "chat" -> player.sendMessage(MiniMessage.miniMessage().deserialize(chatRaw));
+                        }
+
+                        step++;
+                    }
+                }.runTaskTimer(plugin, 0L, intervalTicks);
+                ACTIVE_COUNTDOWNS.put(player.getUniqueId(), task);
+
                 return 1;
             }
 
