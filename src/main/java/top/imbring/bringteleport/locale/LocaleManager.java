@@ -1,4 +1,4 @@
-package top.imbring.playerwaypoints.locale;
+package top.imbring.bringteleport.locale;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;

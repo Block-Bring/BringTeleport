@@ -1,4 +1,4 @@
-# PlayerWaypoints
+# BringTeleport
 
 ## Commit 规范
 

@@ -1,4 +1,4 @@
-package top.imbring.playerwaypoints.model;
+package top.imbring.bringteleport.model;
 
 import org.bukkit.Location;
 

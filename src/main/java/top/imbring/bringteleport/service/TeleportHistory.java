@@ -1,4 +1,4 @@
-package top.imbring.playerwaypoints.service;
+package top.imbring.bringteleport.service;
 
 import org.bukkit.Location;
 import org.bukkit.entity.Player;

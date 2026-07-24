@@ -1,13 +1,13 @@
-package top.imbring.playerwaypoints;
+package top.imbring.bringteleport;
 
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import org.bukkit.plugin.java.JavaPlugin;
-import top.imbring.playerwaypoints.command.CommandManager;
-import top.imbring.playerwaypoints.locale.LocaleManager;
-import top.imbring.playerwaypoints.service.TeleportHistory;
-import top.imbring.playerwaypoints.service.WaypointManager;
+import top.imbring.bringteleport.command.CommandManager;
+import top.imbring.bringteleport.locale.LocaleManager;
+import top.imbring.bringteleport.service.TeleportHistory;
+import top.imbring.bringteleport.service.WaypointManager;
 
-public final class PlayerWaypointsPlugin extends JavaPlugin {
+public final class BringTeleportPlugin extends JavaPlugin {
 
     private LocaleManager localeManager;
     private WaypointManager waypointManager;
@@ -39,7 +39,7 @@ public final class PlayerWaypointsPlugin extends JavaPlugin {
         if (this.waypointManager != null) {
             this.waypointManager.shutdown();
         }
-        getLogger().info("PlayerWaypoints has been disabled!");
+        getLogger().info("BringTeleport has been disabled!");
     }
 
     public LocaleManager getLocaleManager() {

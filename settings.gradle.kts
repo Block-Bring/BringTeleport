@@ -1,1 +1,1 @@
-rootProject.name = "PlayerWaypoints"
+rootProject.name = "BringTeleport"

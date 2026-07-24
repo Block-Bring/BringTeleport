@@ -25,7 +25,7 @@ body:
     id: version
     attributes:
       label: 插件版本
-      description: plugins/PlayerWaypoints/ 目录下的 jar 文件名
+      description: plugins/BringTeleport/ 目录下的 jar 文件名
     validations:
       required: true
 

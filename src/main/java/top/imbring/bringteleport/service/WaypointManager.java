@@ -1,11 +1,11 @@
-package top.imbring.playerwaypoints.service;
+package top.imbring.bringteleport.service;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.plugin.java.JavaPlugin;
-import top.imbring.playerwaypoints.model.Waypoint;
-import top.imbring.playerwaypoints.model.Waypoint.WaypointType;
+import top.imbring.bringteleport.model.Waypoint;
+import top.imbring.bringteleport.model.Waypoint.WaypointType;
 
 import java.io.File;
 import java.sql.Connection;

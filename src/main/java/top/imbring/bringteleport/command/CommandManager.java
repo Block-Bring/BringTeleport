@@ -1,14 +1,14 @@
-package top.imbring.playerwaypoints.command;
+package top.imbring.bringteleport.command;
 
 import io.papermc.paper.command.brigadier.Commands;
-import top.imbring.playerwaypoints.PlayerWaypointsPlugin;
+import top.imbring.bringteleport.BringTeleportPlugin;
 
 public final class CommandManager {
 
     private CommandManager() {
     }
 
-    public static void register(Commands commands, PlayerWaypointsPlugin plugin) {
+    public static void register(Commands commands, BringTeleportPlugin plugin) {
         WaypointCommand.register(commands, plugin);
     }
 }

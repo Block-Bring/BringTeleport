@@ -46,7 +46,7 @@ tasks {
     }
 
     shadowJar {
-        archiveFileName.set("PlayerWaypoints-Paper-26.1.2-${version}.jar")
+        archiveFileName.set("BringTeleport-Paper-26.1.2-${version}.jar")
         mergeServiceFiles()
     }
 
