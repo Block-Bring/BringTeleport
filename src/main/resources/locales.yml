@@ -1,3 +1,14 @@
+# ========== 插件 ==========
+bringteleport:
+  help: |
+    <green>═══ <white>BringTeleport</white> ═══</green>
+
+    <dark_green>◈ 管理</dark_green>
+    <green>/bringteleport reload</green>  <dark_gray>重载配置文件</dark_gray>
+    <green>/bringteleport help</green>  <dark_gray>显示此帮助</dark_gray>
+  reload:
+    success: "<green>✔</green> <gray>配置文件已重载</gray>"
+
 # ========== 路径点 ==========
 waypoint:
   # 路径点类型名称（在 info 等命令中显示）
@@ -22,10 +33,6 @@ waypoint:
     <green>/waypoint tp private <name></green>  <dark_gray>传送到私有路径点</dark_gray>
     <green>/waypoint tp back [index]</green>  <dark_gray>返回传送前的位置</dark_gray>
     <green>/waypoint tp back undo</green>  <dark_gray>撤销上次 back</dark_gray>
-
-    <dark_green>◈ 系统</dark_green>
-    <green>/waypoint reload</green>  <dark_gray>重载配置文件</dark_gray>
-    <green>/waypoint help</green>  <dark_gray>显示此帮助</dark_gray>
   create:
     success: "<green>✔</green> <gray>路径点 </gray><yellow>{name}</yellow><gray> ({type}) 已创建</gray>"
     duplicate-public: "<red>公有路径点 </red><yellow>{name}</yellow><red> 已存在</red>"
@@ -56,8 +63,6 @@ waypoint:
       steps-exceed: "<red>传送历史最多可回溯 {available} 步，无法回溯 {steps} 步</red>"
       undo-none: "<red>没有可撤销的 back 操作</red>"
       undo-success: "<green>✔</green> <gray>已撤销 back，回到传送前的位置</gray>"
-  reload:
-    success: "<green>✔</green> <gray>配置文件已重载</gray>"
   error:
     player-only: "<red>只有玩家才能使用此命令</red>"
     name-required: "<red>请输入有效的路径点名称</red>"

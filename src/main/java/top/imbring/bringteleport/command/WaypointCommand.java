@@ -39,8 +39,6 @@ public final class WaypointCommand {
 
         var waypointNode = literal("waypoint")
             .executes(ctx -> executeHelp(ctx, plugin))
-            .then(literal("reload")
-                .executes(ctx -> executeReload(ctx, plugin)))
             .then(literal("help")
                 .executes(ctx -> executeHelp(ctx, plugin)))
             .then(literal("create")
@@ -61,7 +59,7 @@ public final class WaypointCommand {
                                 // their own public waypoints
                                 CommandSourceStack source = ctx.getSource();
                                 if (source.getSender() instanceof Player player
-                                    && !player.hasPermission("bringteleport.del.other")) {
+                                    && !player.hasPermission("bringteleport.waypoint.del.other")) {
                                     stream = stream.filter(
                                         wp -> player.getUniqueId().equals(wp.getOwnerUuid()));
                                 }
@@ -159,23 +157,6 @@ public final class WaypointCommand {
         commands.register(waypointNode, "Manage waypoints", List.of("wp"));
     }
 
-    private static int executeReload(CommandContext<CommandSourceStack> ctx, BringTeleportPlugin plugin) {
-        try {
-            CommandSourceStack source = ctx.getSource();
-            if (!source.getSender().hasPermission("bringteleport.reload")) {
-                source.getSender().sendMessage(getLocaleMessage(plugin, "waypoint.error.no-permission"));
-                return 0;
-            }
-            plugin.reload();
-            source.getSender().sendMessage(getLocaleMessage(plugin, "waypoint.reload.success"));
-            return 1;
-        } catch (Exception e) {
-            plugin.getLogger().log(Level.SEVERE, "Failed to reload plugin", e);
-            ctx.getSource().getSender().sendMessage(Component.text("An internal error occurred. Please try again."));
-            return 0;
-        }
-    }
-
     private static int executeHelp(CommandContext<CommandSourceStack> ctx, BringTeleportPlugin plugin) {
         try {
             CommandSourceStack source = ctx.getSource();
@@ -197,7 +178,7 @@ public final class WaypointCommand {
                 return 1;
             }
 
-            if (!player.hasPermission("bringteleport.create")) {
+            if (!player.hasPermission("bringteleport.waypoint.create")) {
                 player.sendMessage(getLocaleMessage(plugin, "waypoint.error.no-permission"));
                 return 0;
             }
@@ -268,7 +249,7 @@ public final class WaypointCommand {
                 return 1;
             }
 
-            if (!player.hasPermission("bringteleport.del")) {
+            if (!player.hasPermission("bringteleport.waypoint.del")) {
                 player.sendMessage(getLocaleMessage(plugin, "waypoint.error.no-permission"));
                 return 0;
             }
@@ -301,7 +282,7 @@ public final class WaypointCommand {
                 boolean isOwner = existing.get().getOwnerUuid() != null
                     && existing.get().getOwnerUuid().equals(player.getUniqueId());
 
-                if (!isOwner && !player.hasPermission("bringteleport.del.other")) {
+                if (!isOwner && !player.hasPermission("bringteleport.waypoint.del.other")) {
                     player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.delete.not-owner", null));
                     return 0;
                 }
@@ -333,7 +314,7 @@ public final class WaypointCommand {
                 return 1;
             }
 
-            if (!player.hasPermission("bringteleport.info")) {
+            if (!player.hasPermission("bringteleport.waypoint.info")) {
                 player.sendMessage(getLocaleMessage(plugin, "waypoint.error.no-permission"));
                 return 0;
             }
@@ -421,7 +402,7 @@ public final class WaypointCommand {
                 return 1;
             }
 
-            if (!player.hasPermission("bringteleport.tp")) {
+            if (!player.hasPermission("bringteleport.waypoint.tp")) {
                 player.sendMessage(getLocaleMessage(plugin, "waypoint.error.no-permission"));
                 return 0;
             }
@@ -479,7 +460,7 @@ public final class WaypointCommand {
                 return 1;
             }
 
-            if (!player.hasPermission("bringteleport.tp")) {
+            if (!player.hasPermission("bringteleport.waypoint.tp")) {
                 player.sendMessage(getLocaleMessage(plugin, "waypoint.error.no-permission"));
                 return 0;
             }
@@ -519,7 +500,7 @@ public final class WaypointCommand {
                 return 1;
             }
 
-            if (!player.hasPermission("bringteleport.tp")) {
+            if (!player.hasPermission("bringteleport.waypoint.tp")) {
                 player.sendMessage(getLocaleMessage(plugin, "waypoint.error.no-permission"));
                 return 0;
             }

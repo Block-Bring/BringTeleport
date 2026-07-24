@@ -7,31 +7,41 @@ main: top.imbring.bringteleport.BringTeleportPlugin
 commands: { }
 
 permissions:
-  bringteleport.create:
-    description: 创建路径点
-    default: true
-  bringteleport.del:
-    description: 删除路径点
-    default: true
-  bringteleport.del.other:
-    description: 删除其他玩家创建的公有路径点
-    default: op
-  bringteleport.info:
-    description: 查看路径点信息
-    default: true
-  bringteleport.tp:
-    description: 传送至路径点
-    default: true
+  # Plugin-level permissions
   bringteleport.reload:
     description: 重载插件配置文件
     default: op
-  bringteleport.*:
-    description: 所有 bringteleport 权限
+
+  # Waypoint feature permissions
+  bringteleport.waypoint.create:
+    description: 创建路径点
+    default: true
+  bringteleport.waypoint.del:
+    description: 删除路径点
+    default: true
+  bringteleport.waypoint.del.other:
+    description: 删除其他玩家创建的公有路径点
+    default: op
+  bringteleport.waypoint.info:
+    description: 查看路径点信息
+    default: true
+  bringteleport.waypoint.tp:
+    description: 传送至路径点
+    default: true
+
+  # Wildcards
+  bringteleport.waypoint.*:
+    description: 所有路径点权限
     default: op
     children:
-      bringteleport.create: true
-      bringteleport.del: true
-      bringteleport.del.other: true
-      bringteleport.info: true
-      bringteleport.tp: true
+      bringteleport.waypoint.create: true
+      bringteleport.waypoint.del: true
+      bringteleport.waypoint.del.other: true
+      bringteleport.waypoint.info: true
+      bringteleport.waypoint.tp: true
+  bringteleport.*:
+    description: 所有 BringTeleport 权限
+    default: op
+    children:
       bringteleport.reload: true
+      bringteleport.waypoint.*: true
