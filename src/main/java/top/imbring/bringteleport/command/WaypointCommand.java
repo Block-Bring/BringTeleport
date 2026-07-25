@@ -531,8 +531,16 @@ public final class WaypointCommand {
                 float soundVolume = (float) plugin.getConfig().getDouble("waypoint.teleport.countdown.sound.volume", 1.0);
                 float soundPitch = (float) plugin.getConfig().getDouble("waypoint.teleport.countdown.sound.pitch", 1.0);
 
+                boolean cancelOnMove = plugin.getConfig().getBoolean("waypoint.teleport.countdown.cancel-on-move.enabled", true);
+                String cancelSoundName = plugin.getConfig().getString("waypoint.teleport.countdown.cancel-on-move.sound.name", "block.anvil.place");
+                float cancelSoundVolume = (float) plugin.getConfig().getDouble("waypoint.teleport.countdown.cancel-on-move.sound.volume", 1.0);
+                float cancelSoundPitch = (float) plugin.getConfig().getDouble("waypoint.teleport.countdown.cancel-on-move.sound.pitch", 1.0);
+
                 BukkitTask task = new BukkitRunnable() {
                     int step = 0;
+                    int startBlockX = playerLoc.getBlockX();
+                    int startBlockY = playerLoc.getBlockY();
+                    int startBlockZ = playerLoc.getBlockZ();
 
                     @Override
                     public void run() {
@@ -542,12 +550,23 @@ public final class WaypointCommand {
                             return;
                         }
 
+                        // 检测玩家是否移动
+                        if (cancelOnMove) {
+                            Location cur = player.getLocation();
+                            if (cur.getBlockX() != startBlockX || cur.getBlockY() != startBlockY || cur.getBlockZ() != startBlockZ) {
+                                ACTIVE_COUNTDOWNS.remove(player.getUniqueId());
+                                player.playSound(player.getLocation(), cancelSoundName, SoundCategory.MASTER, cancelSoundVolume, cancelSoundPitch);
+                                player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.tp.countdown.cancelled", null));
+                                cancel();
+                                return;
+                            }
+                        }
+
                         if (step >= totalSteps) {
                             ACTIVE_COUNTDOWNS.remove(player.getUniqueId());
                             plugin.getTeleportHistory().record(player, playerLoc);
                             player.teleportAsync(targetLoc);
-                            player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.tp.success",
-                                Map.of("name", wpName)));
+                            sendTeleportSuccess(player, plugin, wpName);
                             cancel();
                             return;
                         }
@@ -563,7 +582,7 @@ public final class WaypointCommand {
                         }
 
                         // 播放倒计时提示音
-                        if (soundEnabled && soundInterval > 0 && step > 0 && step % soundInterval == 0) {
+                        if (soundEnabled && soundInterval > 0 && step % soundInterval == 0) {
                             player.playSound(player.getLocation(), soundName, SoundCategory.MASTER, soundVolume, soundPitch);
                         }
 
@@ -596,8 +615,7 @@ public final class WaypointCommand {
 
             plugin.getTeleportHistory().record(player, player.getLocation());
             player.teleportAsync(location);
-            player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.tp.success",
-                Map.of("name", name)));
+            sendTeleportSuccess(player, plugin, name);
 
             return 1;
         } catch (Exception e) {
@@ -674,6 +692,45 @@ public final class WaypointCommand {
             plugin.getLogger().log(Level.SEVERE, "Failed to execute waypoint tp back undo command", e);
             ctx.getSource().getSender().sendMessage(Component.text("An internal error occurred. Please try again."));
             return 0;
+        }
+    }
+
+    private static void sendTeleportSuccess(Player player, BringTeleportPlugin plugin, String waypointName) {
+        String displayMode = plugin.getConfig().getString("waypoint.teleport.success.display", "title");
+
+        boolean soundEnabled = plugin.getConfig().getBoolean("waypoint.teleport.success.sound.enabled", true);
+        if (soundEnabled) {
+            String soundName = plugin.getConfig().getString("waypoint.teleport.success.sound.name", "entity.player.levelup");
+            float volume = (float) plugin.getConfig().getDouble("waypoint.teleport.success.sound.volume", 1.0);
+            float pitch = (float) plugin.getConfig().getDouble("waypoint.teleport.success.sound.pitch", 1.0);
+            player.playSound(player.getLocation(), soundName, SoundCategory.MASTER, volume, pitch);
+        }
+
+        switch (displayMode) {
+            case "title" -> {
+                String titleRaw = plugin.getLocaleManager().getRaw("waypoint.tp.success.title")
+                    .replace("{name}", waypointName);
+                player.showTitle(Title.title(MiniMessage.miniMessage().deserialize(titleRaw), Component.empty(),
+                    Title.Times.times(Duration.ZERO, Duration.ofSeconds(1), Duration.ofMillis(250))));
+            }
+            case "subtitle" -> {
+                String subtitleRaw = plugin.getLocaleManager().getRaw("waypoint.tp.success.subtitle")
+                    .replace("{name}", waypointName);
+                player.showTitle(Title.title(Component.empty(), MiniMessage.miniMessage().deserialize(subtitleRaw),
+                    Title.Times.times(Duration.ZERO, Duration.ofSeconds(1), Duration.ofMillis(250))));
+            }
+            case "both" -> {
+                String titleRaw = plugin.getLocaleManager().getRaw("waypoint.tp.success.title")
+                    .replace("{name}", waypointName);
+                String subtitleRaw = plugin.getLocaleManager().getRaw("waypoint.tp.success.subtitle")
+                    .replace("{name}", waypointName);
+                player.showTitle(Title.title(
+                    MiniMessage.miniMessage().deserialize(titleRaw),
+                    MiniMessage.miniMessage().deserialize(subtitleRaw),
+                    Title.Times.times(Duration.ZERO, Duration.ofSeconds(1), Duration.ofMillis(250))));
+            }
+            default -> player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.tp.success.chat",
+                Map.of("name", waypointName)));
         }
     }
 

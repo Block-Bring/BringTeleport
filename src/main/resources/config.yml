@@ -31,6 +31,26 @@ waypoint:
         volume: 1.0
         # 音调（0.5 - 2.0）
         pitch: 1.0
+      cancel-on-move:
+        # 倒计时期间玩家移动是否取消传送
+        enabled: true
+        sound:
+          # 取消时的提示音
+          name: "block.anvil.place"
+          volume: 1.0
+          pitch: 1.0
+    success:
+      # 传送成功提示显示方式: subtitle / title / both / chat
+      display: "title"
+      sound:
+        # 是否启用传送成功提示音
+        enabled: true
+        # 声音名称（默认玩家升级音效）
+        name: "entity.player.levelup"
+        # 音量（0.0 - 1.0）
+        volume: 1.0
+        # 音调（0.5 - 2.0）
+        pitch: 1.0
 
 # 插件配置版本
 config-version: 2
