@@ -11,8 +11,10 @@ import java.util.Map;
 public class LocaleManager {
 
     private final JavaPlugin plugin;
-    private YamlConfiguration locale;
     private final MiniMessage miniMessage;
+    private YamlConfiguration locale;
+    private boolean prefixEnabled;
+    private Component prefix;
 
     public LocaleManager(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -22,8 +24,11 @@ public class LocaleManager {
 
     public void reload() {
         File file = new File(plugin.getDataFolder(), "locales.yml");
-        plugin.saveResource("locales.yml", true);
         this.locale = YamlConfiguration.loadConfiguration(file);
+
+        this.prefixEnabled = plugin.getConfig().getBoolean("prefix-enabled", true);
+        String prefixStr = this.locale.getString("bringteleport.prefix", "");
+        this.prefix = prefixStr.isEmpty() ? null : this.miniMessage.deserialize(prefixStr);
     }
 
     public Component getMessage(String path, Map<String, String> placeholders) {
@@ -38,7 +43,13 @@ public class LocaleManager {
             }
         }
 
-        return this.miniMessage.deserialize(message);
+        Component component = this.miniMessage.deserialize(message);
+
+        if (prefixEnabled && prefix != null) {
+            component = prefix.append(Component.space()).append(component);
+        }
+
+        return component;
     }
 
     public String getRaw(String path) {
