@@ -21,6 +21,7 @@ public final class BringTeleportPlugin extends JavaPlugin {
         System.setProperty("sqlite.purejava", "true");
 
         saveDefaultConfig();
+        saveResource("locales.yml", false);
         this.localeManager = new LocaleManager(this);
         this.waypointManager = new WaypointManager(this);
         this.teleportHistory = new TeleportHistory();

@@ -555,10 +555,12 @@ public final class WaypointCommand {
                             secStr = String.format("%." + decimals + "f", remain);
                         }
 
-                        Component cTitle = plugin.getLocaleManager().getMessage("waypoint.tp.countdown.title",
-                            Map.of("seconds", secStr));
-                        Component cSubtitle = plugin.getLocaleManager().getMessage("waypoint.tp.countdown.subtitle",
-                            Map.of("seconds", secStr));
+                        String titleRaw = plugin.getLocaleManager().getRaw("waypoint.tp.countdown.title")
+                            .replace("{seconds}", secStr);
+                        String subtitleRaw = plugin.getLocaleManager().getRaw("waypoint.tp.countdown.subtitle")
+                            .replace("{seconds}", secStr);
+                        Component cTitle = MiniMessage.miniMessage().deserialize(titleRaw);
+                        Component cSubtitle = MiniMessage.miniMessage().deserialize(subtitleRaw);
 
                         String chatRaw = plugin.getLocaleManager().getRaw("waypoint.tp.countdown.chat")
                             .replace("{seconds}", secStr);
@@ -668,7 +670,7 @@ public final class WaypointCommand {
     }
 
     private static String getTypeLabel(BringTeleportPlugin plugin, WaypointType type) {
-        String key = type == WaypointType.PUBLIC ? "waypoint.type.public" : "waypoint.type.private";
+        String key = type == WaypointType.PUBLIC ? "waypoint.info.type.public" : "waypoint.info.type.private";
         return plugin.getLocaleManager().getRaw(key);
     }
 }
