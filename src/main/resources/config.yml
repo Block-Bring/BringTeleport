@@ -34,6 +34,8 @@ waypoint:
       cancel-on-move:
         # 倒计时期间玩家移动是否取消传送
         enabled: true
+        # 取消提示显示方式: subtitle / title / both / chat
+        display: "chat"
         sound:
           # 取消时的提示音
           name: "block.anvil.place"
