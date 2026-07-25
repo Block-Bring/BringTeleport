@@ -55,14 +55,18 @@ waypoint:
       <gold>创建时间：<green>{date}
       <gold>世界：<green>{world}
       <gold>坐标：<green>{x} {y} {z}
-      <gold>=========================
+      <gold>====================
     not-found: "<red>路径点 </red><yellow>{name}</yellow><red> ({type}) 不存在</red>"
   tp:
     countdown:
       title: "即将传送"
       subtitle: "<yellow>{seconds}</yellow>"
       chat: "<white>将在 <yellow>{seconds}</yellow> 秒后传送</white>"
-    success: "<green>✔</green> <white>已传送到路径点 </white><yellow>{name}</yellow>"
+      cancelled: "<red>移动了，传送已取消</red>"
+    success:
+      title: "<green>✔</green> <white>传送完成</white>"
+      subtitle: "<yellow>{name}</yellow>"
+      chat: "<green>✔</green> <white>已传送到路径点 </white><yellow>{name}</yellow>"
     not-found: "<red>路径点 </red><yellow>{name}</yellow><red> ({type}) 不存在</red>"
     world-not-loaded: "<red>路径点所在世界 </red><yellow>{world}</yellow><red> 未加载</red>"
     back:

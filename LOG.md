@@ -12,10 +12,13 @@
   - 可配置 `waypoint.teleport.countdown.interval` 更新频率（秒）
   - 支持 `subtitle` / `title` / `both` / `chat` 四种显示方式
 - **传送倒计时提示音**：倒计时过程中播放提示音
-  - 可配置 `waypoint.teleport.countdown.sound.enabled` 开关
-  - 可配置 `waypoint.teleport.countdown.sound.name` 声音名称
-  - 可配置 `waypoint.teleport.countdown.sound.interval` 播放间隔
-  - 可配置 `waypoint.teleport.countdown.sound.volume` 和 `pitch`
+  - 可配置 `waypoint.teleport.countdown.sound` 相关选项
+- **传送倒计时移动取消**：倒计时期间玩家移动则取消传送
+  - 可配置 `waypoint.teleport.countdown.cancel-on-move.enabled` 开关
+  - 可配置 `waypoint.teleport.countdown.cancel-on-move.sound` 取消提示音
+- **传送成功提示**：传送完成时可配置显示方式和提示音
+  - 可配置 `waypoint.teleport.success.display` 显示方式（subtitle/title/both/chat）
+  - 可配置 `waypoint.teleport.success.sound` 相关选项
 - **消息前缀系统**：所有消息前自动添加 `[BringTeleport]` 前缀
   - 可配置 `prefix-enabled` 开关
   - 可自定义 `locales.yml` 中的 `bringteleport.prefix`
