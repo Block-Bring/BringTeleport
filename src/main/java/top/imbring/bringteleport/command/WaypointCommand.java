@@ -9,6 +9,7 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.title.Title;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.SoundCategory;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
@@ -524,6 +525,12 @@ public final class WaypointCommand {
                 int totalSteps = (int) Math.ceil(delaySec / tickInterval);
                 long intervalTicks = Math.max(1, (long) (tickInterval * 20));
 
+                boolean soundEnabled = plugin.getConfig().getBoolean("waypoint.teleport.countdown.sound.enabled", true);
+                String soundName = plugin.getConfig().getString("waypoint.teleport.countdown.sound.name", "block.note_block.pling");
+                int soundInterval = plugin.getConfig().getInt("waypoint.teleport.countdown.sound.interval", 1);
+                float soundVolume = (float) plugin.getConfig().getDouble("waypoint.teleport.countdown.sound.volume", 1.0);
+                float soundPitch = (float) plugin.getConfig().getDouble("waypoint.teleport.countdown.sound.pitch", 1.0);
+
                 BukkitTask task = new BukkitRunnable() {
                     int step = 0;
 
@@ -553,6 +560,11 @@ public final class WaypointCommand {
                         } else {
                             int decimals = tickInterval < 0.1 ? 2 : 1;
                             secStr = String.format("%." + decimals + "f", remain);
+                        }
+
+                        // 播放倒计时提示音
+                        if (soundEnabled && soundInterval > 0 && step > 0 && step % soundInterval == 0) {
+                            player.playSound(player.getLocation(), soundName, SoundCategory.MASTER, soundVolume, soundPitch);
                         }
 
                         String titleRaw = plugin.getLocaleManager().getRaw("waypoint.tp.countdown.title")
