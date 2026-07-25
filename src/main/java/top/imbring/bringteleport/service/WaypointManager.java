@@ -23,24 +23,28 @@ import java.util.logging.Level;
 public class WaypointManager {
 
     private final JavaPlugin plugin;
+    private final String dbUrl;
     private Connection connection;
+    private boolean schemaReady;
 
     public WaypointManager(JavaPlugin plugin) {
         this.plugin = plugin;
-        initDatabase();
+        File dbFile = new File(plugin.getDataFolder(), "data.db");
+        this.dbUrl = "jdbc:sqlite:" + dbFile.getAbsolutePath();
+        ensureSchema();
     }
 
-    private void initDatabase() {
+    private synchronized Connection getConnection() throws SQLException {
+        if (this.connection == null || this.connection.isClosed()) {
+            this.connection = DriverManager.getConnection(this.dbUrl);
+        }
+        return this.connection;
+    }
+
+    private void ensureSchema() {
         try {
-            File dataFolder = this.plugin.getDataFolder();
-            if (!dataFolder.exists()) {
-                dataFolder.mkdirs();
-            }
-
-            File dbFile = new File(dataFolder, "data.db");
-            this.connection = DriverManager.getConnection("jdbc:sqlite:" + dbFile.getAbsolutePath());
-
-            try (Statement stmt = this.connection.createStatement()) {
+            Connection conn = getConnection();
+            try (Statement stmt = conn.createStatement()) {
                 stmt.execute("""
                     CREATE TABLE IF NOT EXISTS waypoints (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -57,14 +61,13 @@ public class WaypointManager {
                     )
                 """);
 
-                // Public waypoints must have unique names globally
                 stmt.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_waypoint_public_name " +
                     "ON waypoints(name) WHERE type = 'PUBLIC'");
 
-                // Private waypoints must be unique per player
                 stmt.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_waypoint_private_name " +
                     "ON waypoints(name, owner_uuid) WHERE type = 'PRIVATE'");
             }
+            this.schemaReady = true;
         } catch (SQLException e) {
             this.plugin.getLogger().log(Level.SEVERE, "Failed to initialize database", e);
         }
@@ -76,7 +79,7 @@ public class WaypointManager {
      */
     public boolean addWaypoint(Waypoint waypoint) {
         String sql = "INSERT INTO waypoints (name, world, x, y, z, yaw, pitch, type, owner_uuid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        try (PreparedStatement pstmt = this.connection.prepareStatement(sql)) {
+        try (PreparedStatement pstmt = getConnection().prepareStatement(sql)) {
             pstmt.setString(1, waypoint.getName());
             pstmt.setString(2, waypoint.getWorld());
             pstmt.setDouble(3, waypoint.getX());
@@ -113,7 +116,7 @@ public class WaypointManager {
             sql = "DELETE FROM waypoints WHERE name = ? AND type = 'PRIVATE' AND owner_uuid = ?";
         }
 
-        try (PreparedStatement pstmt = this.connection.prepareStatement(sql)) {
+        try (PreparedStatement pstmt = getConnection().prepareStatement(sql)) {
             pstmt.setString(1, name);
             if (type == WaypointType.PRIVATE) {
                 pstmt.setString(2, ownerUuid.toString());
@@ -138,7 +141,7 @@ public class WaypointManager {
             sql = "SELECT * FROM waypoints WHERE name = ? AND type = 'PRIVATE' AND owner_uuid = ?";
         }
 
-        try (PreparedStatement pstmt = this.connection.prepareStatement(sql)) {
+        try (PreparedStatement pstmt = getConnection().prepareStatement(sql)) {
             pstmt.setString(1, name);
             if (type == WaypointType.PRIVATE) {
                 pstmt.setString(2, ownerUuid.toString());
@@ -161,7 +164,7 @@ public class WaypointManager {
     public List<Waypoint> getPublicWaypoints() {
         List<Waypoint> waypoints = new ArrayList<>();
         String sql = "SELECT * FROM waypoints WHERE type = 'PUBLIC' ORDER BY name";
-        try (Statement stmt = this.connection.createStatement();
+        try (Statement stmt = getConnection().createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
             while (rs.next()) {
                 waypoints.add(mapRow(rs));
@@ -178,7 +181,7 @@ public class WaypointManager {
     public List<Waypoint> getPrivateWaypoints(UUID ownerUuid) {
         List<Waypoint> waypoints = new ArrayList<>();
         String sql = "SELECT * FROM waypoints WHERE type = 'PRIVATE' AND owner_uuid = ? ORDER BY name";
-        try (PreparedStatement pstmt = this.connection.prepareStatement(sql)) {
+        try (PreparedStatement pstmt = getConnection().prepareStatement(sql)) {
             pstmt.setString(1, ownerUuid.toString());
             try (ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {
@@ -203,13 +206,14 @@ public class WaypointManager {
             waypoint.getYaw(), waypoint.getPitch());
     }
 
-    public void shutdown() {
+    public synchronized void shutdown() {
         if (this.connection != null) {
             try {
                 this.connection.close();
             } catch (SQLException e) {
                 this.plugin.getLogger().log(Level.SEVERE, "Failed to close database connection", e);
             }
+            this.connection = null;
         }
     }
 

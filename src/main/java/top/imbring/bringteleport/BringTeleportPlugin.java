@@ -3,6 +3,7 @@ package top.imbring.bringteleport;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import org.bukkit.plugin.java.JavaPlugin;
 import top.imbring.bringteleport.command.CommandManager;
+import top.imbring.bringteleport.config.ConfigManager;
 import top.imbring.bringteleport.locale.LocaleManager;
 import top.imbring.bringteleport.service.TeleportHistory;
 import top.imbring.bringteleport.service.WaypointManager;
@@ -22,6 +23,7 @@ public final class BringTeleportPlugin extends JavaPlugin {
 
         saveDefaultConfig();
         saveResource("locales.yml", false);
+        ConfigManager.migrate(this);
         this.localeManager = new LocaleManager(this);
         this.waypointManager = new WaypointManager(this);
         this.teleportHistory = new TeleportHistory();
@@ -56,6 +58,7 @@ public final class BringTeleportPlugin extends JavaPlugin {
     }
 
     public void reload() {
+        ConfigManager.migrate(this);
         reloadConfig();
         this.localeManager.reload();
     }

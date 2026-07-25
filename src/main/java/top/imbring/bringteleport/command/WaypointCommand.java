@@ -11,6 +11,9 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.SoundCategory;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 import top.imbring.bringteleport.BringTeleportPlugin;
@@ -38,9 +41,10 @@ public final class WaypointCommand {
     private static final String TYPE_PRIVATE = "private";
 
     private static final Map<UUID, PendingDeletion> PENDING_DELETIONS = new HashMap<>();
-    private static final Map<UUID, BukkitTask> ACTIVE_COUNTDOWNS = new HashMap<>();
+    private static final Map<UUID, CountdownContext> ACTIVE_COUNTDOWNS = new HashMap<>();
 
     private record PendingDeletion(String name, WaypointType type, long timestamp) {}
+    private record CountdownContext(BukkitTask task, int startBlockX, int startBlockY, int startBlockZ) {}
 
     private WaypointCommand() {
     }
@@ -166,6 +170,45 @@ public final class WaypointCommand {
                     .then(argument("index", IntegerArgumentType.integer(1))
                         .executes(ctx -> executeTpBack(ctx, plugin, IntegerArgumentType.getInteger(ctx, "index"))))))
             .build();
+
+        // 玩家移动监听器：传送倒计时期间移动则取消
+        plugin.getServer().getPluginManager().registerEvents(new Listener() {
+            @EventHandler
+            public void onPlayerMove(PlayerMoveEvent event) {
+                UUID uuid = event.getPlayer().getUniqueId();
+                CountdownContext ctx = ACTIVE_COUNTDOWNS.get(uuid);
+                if (ctx == null) return;
+
+                var from = event.getFrom();
+                var to = event.getTo();
+                if (to == null) return;
+
+                // 忽略纯视角转动（方块坐标未变）
+                if (from.getBlockX() == to.getBlockX()
+                    && from.getBlockY() == to.getBlockY()
+                    && from.getBlockZ() == to.getBlockZ()) return;
+
+                // 未真正离开起始方块则忽略
+                if (to.getBlockX() == ctx.startBlockX
+                    && to.getBlockY() == ctx.startBlockY
+                    && to.getBlockZ() == ctx.startBlockZ) return;
+
+                boolean cancelOnMove = plugin.getConfig().getBoolean("waypoint.teleport.countdown.cancel-on-move.enabled", true);
+                if (!cancelOnMove) return;
+
+                ACTIVE_COUNTDOWNS.remove(uuid);
+                ctx.task.cancel();
+
+                Player player = event.getPlayer();
+                String cancelSoundName = plugin.getConfig().getString("waypoint.teleport.countdown.cancel-on-move.sound.name", "block.anvil.place");
+                float cancelSoundVolume = (float) plugin.getConfig().getDouble("waypoint.teleport.countdown.cancel-on-move.sound.volume", 1.0);
+                float cancelSoundPitch = (float) plugin.getConfig().getDouble("waypoint.teleport.countdown.cancel-on-move.sound.pitch", 1.0);
+                player.playSound(player.getLocation(), cancelSoundName, SoundCategory.MASTER, cancelSoundVolume, cancelSoundPitch);
+
+                String displayMode = plugin.getConfig().getString("waypoint.teleport.countdown.cancel-on-move.display", "chat");
+                displayCancelMessage(player, plugin, displayMode);
+            }
+        }, plugin);
 
         commands.register(waypointNode, "Manage waypoints", List.of("wp"));
     }
@@ -519,8 +562,8 @@ public final class WaypointCommand {
                 Location targetLoc = location;
                 String wpName = name;
 
-                BukkitTask existing = ACTIVE_COUNTDOWNS.remove(player.getUniqueId());
-                if (existing != null) existing.cancel();
+                CountdownContext existing = ACTIVE_COUNTDOWNS.remove(player.getUniqueId());
+                if (existing != null) existing.task().cancel();
 
                 int totalSteps = (int) Math.ceil(delaySec / tickInterval);
                 long intervalTicks = Math.max(1, (long) (tickInterval * 20));
@@ -531,16 +574,12 @@ public final class WaypointCommand {
                 float soundVolume = (float) plugin.getConfig().getDouble("waypoint.teleport.countdown.sound.volume", 1.0);
                 float soundPitch = (float) plugin.getConfig().getDouble("waypoint.teleport.countdown.sound.pitch", 1.0);
 
-                boolean cancelOnMove = plugin.getConfig().getBoolean("waypoint.teleport.countdown.cancel-on-move.enabled", true);
-                String cancelSoundName = plugin.getConfig().getString("waypoint.teleport.countdown.cancel-on-move.sound.name", "block.anvil.place");
-                float cancelSoundVolume = (float) plugin.getConfig().getDouble("waypoint.teleport.countdown.cancel-on-move.sound.volume", 1.0);
-                float cancelSoundPitch = (float) plugin.getConfig().getDouble("waypoint.teleport.countdown.cancel-on-move.sound.pitch", 1.0);
+                int startBlockX = playerLoc.getBlockX();
+                int startBlockY = playerLoc.getBlockY();
+                int startBlockZ = playerLoc.getBlockZ();
 
                 BukkitTask task = new BukkitRunnable() {
                     int step = 0;
-                    int startBlockX = playerLoc.getBlockX();
-                    int startBlockY = playerLoc.getBlockY();
-                    int startBlockZ = playerLoc.getBlockZ();
 
                     @Override
                     public void run() {
@@ -550,23 +589,11 @@ public final class WaypointCommand {
                             return;
                         }
 
-                        // 检测玩家是否移动
-                        if (cancelOnMove) {
-                            Location cur = player.getLocation();
-                            if (cur.getBlockX() != startBlockX || cur.getBlockY() != startBlockY || cur.getBlockZ() != startBlockZ) {
-                                ACTIVE_COUNTDOWNS.remove(player.getUniqueId());
-                                player.playSound(player.getLocation(), cancelSoundName, SoundCategory.MASTER, cancelSoundVolume, cancelSoundPitch);
-                                player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.tp.countdown.cancelled", null));
-                                cancel();
-                                return;
-                            }
-                        }
-
                         if (step >= totalSteps) {
                             ACTIVE_COUNTDOWNS.remove(player.getUniqueId());
                             plugin.getTeleportHistory().record(player, playerLoc);
-                            player.teleportAsync(targetLoc);
-                            sendTeleportSuccess(player, plugin, wpName);
+                            player.teleportAsync(targetLoc).thenAccept(success ->
+                                sendTeleportSuccess(player, plugin, wpName));
                             cancel();
                             return;
                         }
@@ -608,14 +635,14 @@ public final class WaypointCommand {
                         step++;
                     }
                 }.runTaskTimer(plugin, 0L, intervalTicks);
-                ACTIVE_COUNTDOWNS.put(player.getUniqueId(), task);
+                ACTIVE_COUNTDOWNS.put(player.getUniqueId(), new CountdownContext(task, startBlockX, startBlockY, startBlockZ));
 
                 return 1;
             }
 
             plugin.getTeleportHistory().record(player, player.getLocation());
-            player.teleportAsync(location);
-            sendTeleportSuccess(player, plugin, name);
+            player.teleportAsync(location).thenAccept(success ->
+                sendTeleportSuccess(player, plugin, name));
 
             return 1;
         } catch (Exception e) {
@@ -731,6 +758,22 @@ public final class WaypointCommand {
             }
             default -> player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.tp.success.chat",
                 Map.of("name", waypointName)));
+        }
+    }
+
+    private static void displayCancelMessage(Player player, BringTeleportPlugin plugin, String displayMode) {
+        String text = plugin.getLocaleManager().getRaw("waypoint.tp.countdown.cancelled");
+        switch (displayMode) {
+            case "title" -> player.showTitle(Title.title(
+                MiniMessage.miniMessage().deserialize(text), Component.empty(),
+                Title.Times.times(Duration.ZERO, Duration.ofSeconds(1), Duration.ofMillis(250))));
+            case "subtitle" -> player.showTitle(Title.title(
+                Component.empty(), MiniMessage.miniMessage().deserialize(text),
+                Title.Times.times(Duration.ZERO, Duration.ofSeconds(1), Duration.ofMillis(250))));
+            case "both" -> player.showTitle(Title.title(
+                MiniMessage.miniMessage().deserialize(text), MiniMessage.miniMessage().deserialize(text),
+                Title.Times.times(Duration.ZERO, Duration.ofSeconds(1), Duration.ofMillis(250))));
+            default -> player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.tp.countdown.cancelled", null));
         }
     }
 
