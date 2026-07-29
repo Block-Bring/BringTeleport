@@ -3,6 +3,7 @@ package top.imbring.bringteleport;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import org.bukkit.plugin.java.JavaPlugin;
 import top.imbring.bringteleport.command.CommandManager;
+import top.imbring.bringteleport.command.WaypointCommand;
 import top.imbring.bringteleport.config.ConfigManager;
 import top.imbring.bringteleport.locale.LocaleManager;
 import top.imbring.bringteleport.service.TeleportHistory;
@@ -39,6 +40,7 @@ public final class BringTeleportPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        WaypointCommand.cancelAllCountdowns();
         if (this.waypointManager != null) {
             this.waypointManager.shutdown();
         }
@@ -60,6 +62,7 @@ public final class BringTeleportPlugin extends JavaPlugin {
     public void reload() {
         ConfigManager.migrate(this);
         reloadConfig();
+        WaypointCommand.refreshConfigCache(this);
         this.localeManager.reload();
     }
 }

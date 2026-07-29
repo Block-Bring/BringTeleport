@@ -24,4 +24,5 @@ LOG.md
 # Misc
 .codegraph/
 .reasonix/
+log/
 reasonix.toml
