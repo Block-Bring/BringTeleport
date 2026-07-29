@@ -95,7 +95,7 @@ public final class WaypointCommand {
             countdownEnabled = config.getBoolean("waypoint.teleport.countdown.enabled", true);
             countdownDelay = config.getDouble("waypoint.teleport.countdown.delay", 3.0);
             countdownInterval = config.getDouble("waypoint.teleport.countdown.interval", 1.0);
-            countdownDisplayMode = config.getString("waypoint.teleport.countdown.display", "subtitle");
+            countdownDisplayMode = config.getString("waypoint.teleport.countdown.display", "both");
 
             countdownSoundEnabled = config.getBoolean("waypoint.teleport.countdown.sound.enabled", true);
             countdownSoundName = config.getString("waypoint.teleport.countdown.sound.name", "block.note_block.pling");
