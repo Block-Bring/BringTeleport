@@ -1,12 +1,13 @@
-name: Bug 反馈
+name: 🐛 Bug 反馈
 description: 报告插件的问题或崩溃
 labels: [bug]
+title: "🐛 "
 body:
   - type: textarea
     id: description
     attributes:
       label: 问题描述
-      description: 发生了什么？你期望的是什么？
+      description: 实际发生了什么？期望应该是什么？
     validations:
       required: true
 
@@ -16,8 +17,9 @@ body:
       label: 复现步骤
       description: 怎么才能触发这个问题？
       placeholder: |
-        1. 输入 /waypoint add ...
-        2. 然后 ...
+        1. 输入 /waypoint create public home
+        2. 输入 /waypoint tp public home
+        3. 观察控制台输出
     validations:
       required: true
 
@@ -25,7 +27,7 @@ body:
     id: version
     attributes:
       label: 插件版本
-      description: plugins/BringTeleport/ 目录下的 jar 文件名
+      description: plugins/BringTeleport/ 目录下的 jar 文件名（如 BringTeleport-Paper-26.1.2-0.5.1.jar）
     validations:
       required: true
 
@@ -42,4 +44,4 @@ body:
     attributes:
       label: 控制台日志
       description: 如果有报错，贴一下相关日志（不要截图）
-      render: text
+      render: shell

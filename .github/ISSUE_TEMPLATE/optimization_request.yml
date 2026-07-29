@@ -1,0 +1,31 @@
+name: ⚡ 优化建议
+description: 性能优化、代码重构、改进建议
+labels: [optimization]
+title: "⚡ "
+body:
+  - type: textarea
+    id: background
+    attributes:
+      label: 相关背景
+      description: 为什么要做这个优化？有具体的性能数据或代码分析吗？
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: 优化方案
+      description: 你建议怎么做？（可以贴代码片段或思路）
+      placeholder: |
+        比如：
+        - 缓存某处高频调用的结果
+        - 提取重复的代码片段
+        - 替换低效的数据结构
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: 预期收益
+      description: 这个优化预计能带来什么提升？（性能、可维护性、可读性等）
