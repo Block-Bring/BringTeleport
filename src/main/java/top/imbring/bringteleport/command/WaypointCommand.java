@@ -2,6 +2,8 @@ package top.imbring.bringteleport.command;
 
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.context.CommandContext;
+import com.mojang.brigadier.suggestion.Suggestions;
+import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import net.kyori.adventure.text.Component;
@@ -30,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.logging.Level;
 
 import static io.papermc.paper.command.brigadier.Commands.argument;
@@ -46,10 +49,133 @@ public final class WaypointCommand {
     private record PendingDeletion(String name, WaypointType type, long timestamp) {}
     private record CountdownContext(BukkitTask task, int startBlockX, int startBlockY, int startBlockZ) {}
 
+    // ===== B2: Configuration cache =====
+    private static class ConfigCache {
+        // Cancel-on-move
+        static boolean cancelOnMoveEnabled;
+        static String cancelSoundName;
+        static float cancelSoundVolume;
+        static float cancelSoundPitch;
+        static String cancelDisplayMode;
+
+        // Countdown
+        static boolean countdownEnabled;
+        static double countdownDelay;
+        static double countdownInterval;
+        static String countdownDisplayMode;
+
+        // Countdown sound
+        static boolean countdownSoundEnabled;
+        static String countdownSoundName;
+        static int countdownSoundInterval;
+        static float countdownSoundVolume;
+        static float countdownSoundPitch;
+
+        // Success display
+        static String successDisplayMode;
+        static boolean successSoundEnabled;
+        static String successSoundName;
+        static float successSoundVolume;
+        static float successSoundPitch;
+
+        // Delete confirmation
+        static boolean deleteConfirmationEnabled;
+        static double deleteConfirmationTimeout;
+
+        private ConfigCache() {}
+
+        static void refresh(BringTeleportPlugin plugin) {
+            var config = plugin.getConfig();
+            cancelOnMoveEnabled = config.getBoolean("waypoint.teleport.countdown.cancel-on-move.enabled", true);
+            cancelSoundName = config.getString("waypoint.teleport.countdown.cancel-on-move.sound.name", "block.anvil.place");
+            cancelSoundVolume = (float) config.getDouble("waypoint.teleport.countdown.cancel-on-move.sound.volume", 1.0);
+            cancelSoundPitch = (float) config.getDouble("waypoint.teleport.countdown.cancel-on-move.sound.pitch", 1.0);
+            cancelDisplayMode = config.getString("waypoint.teleport.countdown.cancel-on-move.display", "chat");
+
+            countdownEnabled = config.getBoolean("waypoint.teleport.countdown.enabled", true);
+            countdownDelay = config.getDouble("waypoint.teleport.countdown.delay", 3.0);
+            countdownInterval = config.getDouble("waypoint.teleport.countdown.interval", 1.0);
+            countdownDisplayMode = config.getString("waypoint.teleport.countdown.display", "subtitle");
+
+            countdownSoundEnabled = config.getBoolean("waypoint.teleport.countdown.sound.enabled", true);
+            countdownSoundName = config.getString("waypoint.teleport.countdown.sound.name", "block.note_block.pling");
+            countdownSoundInterval = config.getInt("waypoint.teleport.countdown.sound.interval", 1);
+            countdownSoundVolume = (float) config.getDouble("waypoint.teleport.countdown.sound.volume", 1.0);
+            countdownSoundPitch = (float) config.getDouble("waypoint.teleport.countdown.sound.pitch", 1.0);
+
+            successDisplayMode = config.getString("waypoint.teleport.success.display", "title");
+            successSoundEnabled = config.getBoolean("waypoint.teleport.success.sound.enabled", true);
+            successSoundName = config.getString("waypoint.teleport.success.sound.name", "entity.player.levelup");
+            successSoundVolume = (float) config.getDouble("waypoint.teleport.success.sound.volume", 1.0);
+            successSoundPitch = (float) config.getDouble("waypoint.teleport.success.sound.pitch", 1.0);
+
+            deleteConfirmationEnabled = config.getBoolean("waypoint.delete-confirmation.enabled", true);
+            deleteConfirmationTimeout = config.getDouble("waypoint.delete-confirmation.timeout", 10.0);
+        }
+    }
+
+    // ===== A1: Tab completion helpers =====
+    private static CompletableFuture<Suggestions> suggestPublicWaypoints(CommandSourceStack source, SuggestionsBuilder builder, WaypointManager mgr, boolean filterOwner) {
+        var stream = mgr.getPublicWaypoints().stream();
+        if (filterOwner && source.getSender() instanceof Player player) {
+            stream = stream.filter(wp -> player.getUniqueId().equals(wp.getOwnerUuid()));
+        }
+        stream.map(Waypoint::getName)
+            .filter(name -> name.startsWith(builder.getRemaining()))
+            .forEach(builder::suggest);
+        return builder.buildFuture();
+    }
+
+    private static CompletableFuture<Suggestions> suggestPrivateWaypoints(CommandSourceStack source, SuggestionsBuilder builder, WaypointManager mgr) {
+        if (source.getSender() instanceof Player player) {
+            mgr.getPrivateWaypoints(player.getUniqueId()).stream()
+                .map(Waypoint::getName)
+                .filter(name -> name.startsWith(builder.getRemaining()))
+                .forEach(builder::suggest);
+        }
+        return builder.buildFuture();
+    }
+
+    // ===== A2: Player & name resolution helpers =====
+    private static Player resolvePlayer(CommandContext<CommandSourceStack> ctx, BringTeleportPlugin plugin) {
+        CommandSourceStack source = ctx.getSource();
+        if (source.getSender() instanceof Player player) {
+            return player;
+        }
+        source.getSender().sendMessage(getLocaleMessage(plugin, "waypoint.error.player-only"));
+        return null;
+    }
+
+    private static String resolveName(CommandContext<CommandSourceStack> ctx, BringTeleportPlugin plugin) {
+        try {
+            String name = ctx.getArgument("name", String.class).trim();
+            if (name.isEmpty()) {
+                ctx.getSource().getSender().sendMessage(getLocaleMessage(plugin, "waypoint.error.name-required"));
+                return null;
+            }
+            return name;
+        } catch (IllegalArgumentException e) {
+            ctx.getSource().getSender().sendMessage(getLocaleMessage(plugin, "waypoint.error.name-required"));
+            return null;
+        }
+    }
+
+    // ===== C2: Cancel all active countdowns =====
+    public static void cancelAllCountdowns() {
+        ACTIVE_COUNTDOWNS.values().forEach(ctx -> ctx.task().cancel());
+        ACTIVE_COUNTDOWNS.clear();
+    }
+
+    // ===== B2: Public cache refresh entry =====
+    public static void refreshConfigCache(BringTeleportPlugin plugin) {
+        ConfigCache.refresh(plugin);
+    }
+
     private WaypointCommand() {
     }
 
     public static void register(Commands commands, BringTeleportPlugin plugin) {
+        ConfigCache.refresh(plugin);
         var string = com.mojang.brigadier.arguments.StringArgumentType.greedyString();
 
         var waypointNode = literal("waypoint")
@@ -67,101 +193,39 @@ public final class WaypointCommand {
                 .then(literal(TYPE_PUBLIC)
                     .then(argument("name", string)
                         .suggests((ctx, builder) -> {
-                            WaypointManager mgr = plugin.getWaypointManager();
-                            if (mgr != null) {
-                                var stream = mgr.getPublicWaypoints().stream();
-                                // Regular players without del.other can only tab-complete
-                                // their own public waypoints
-                                CommandSourceStack source = ctx.getSource();
-                                if (source.getSender() instanceof Player player
-                                    && !player.hasPermission("bringteleport.waypoint.del.other")) {
-                                    stream = stream.filter(
-                                        wp -> player.getUniqueId().equals(wp.getOwnerUuid()));
-                                }
-                                stream.map(Waypoint::getName)
-                                    .filter(name -> name.startsWith(builder.getRemaining()))
-                                    .forEach(builder::suggest);
-                            }
-                            return builder.buildFuture();
+                            CommandSourceStack source = ctx.getSource();
+                            return suggestPublicWaypoints(source, builder, plugin.getWaypointManager(),
+                                source.getSender() instanceof Player player && !player.hasPermission("bringteleport.waypoint.del.other"));
                         })
                         .executes(ctx -> executeDel(ctx, plugin, WaypointType.PUBLIC))))
                 .then(literal(TYPE_PRIVATE)
                     .then(argument("name", string)
-                        .suggests((ctx, builder) -> {
-                            CommandSourceStack source = ctx.getSource();
-                            if (source.getSender() instanceof Player player) {
-                                WaypointManager mgr = plugin.getWaypointManager();
-                                if (mgr != null) {
-                                    mgr.getPrivateWaypoints(player.getUniqueId()).stream()
-                                        .map(Waypoint::getName)
-                                        .filter(name -> name.startsWith(builder.getRemaining()))
-                                        .forEach(builder::suggest);
-                                }
-                            }
-                            return builder.buildFuture();
-                        })
+                        .suggests((ctx, builder) ->
+                            suggestPrivateWaypoints(ctx.getSource(), builder, plugin.getWaypointManager()))
                         .executes(ctx -> executeDel(ctx, plugin, WaypointType.PRIVATE)))))
             .then(literal("confirm")
                 .executes(ctx -> executeConfirm(ctx, plugin)))
             .then(literal("info")
                 .then(literal(TYPE_PUBLIC)
                     .then(argument("name", string)
-                        .suggests((ctx, builder) -> {
-                            WaypointManager mgr = plugin.getWaypointManager();
-                            if (mgr != null) {
-                                mgr.getPublicWaypoints().stream()
-                                    .map(Waypoint::getName)
-                                    .filter(name -> name.startsWith(builder.getRemaining()))
-                                    .forEach(builder::suggest);
-                            }
-                            return builder.buildFuture();
-                        })
+                        .suggests((ctx, builder) ->
+                            suggestPublicWaypoints(ctx.getSource(), builder, plugin.getWaypointManager(), false))
                         .executes(ctx -> executeInfo(ctx, plugin, WaypointType.PUBLIC))))
                 .then(literal(TYPE_PRIVATE)
                     .then(argument("name", string)
-                        .suggests((ctx, builder) -> {
-                            CommandSourceStack source = ctx.getSource();
-                            if (source.getSender() instanceof Player player) {
-                                WaypointManager mgr = plugin.getWaypointManager();
-                                if (mgr != null) {
-                                    mgr.getPrivateWaypoints(player.getUniqueId()).stream()
-                                        .map(Waypoint::getName)
-                                        .filter(name -> name.startsWith(builder.getRemaining()))
-                                        .forEach(builder::suggest);
-                                }
-                            }
-                            return builder.buildFuture();
-                        })
+                        .suggests((ctx, builder) ->
+                            suggestPrivateWaypoints(ctx.getSource(), builder, plugin.getWaypointManager()))
                         .executes(ctx -> executeInfo(ctx, plugin, WaypointType.PRIVATE)))))
             .then(literal("tp")
                 .then(literal(TYPE_PUBLIC)
                     .then(argument("name", string)
-                        .suggests((ctx, builder) -> {
-                            WaypointManager mgr = plugin.getWaypointManager();
-                            if (mgr != null) {
-                                mgr.getPublicWaypoints().stream()
-                                    .map(Waypoint::getName)
-                                    .filter(name -> name.startsWith(builder.getRemaining()))
-                                    .forEach(builder::suggest);
-                            }
-                            return builder.buildFuture();
-                        })
+                        .suggests((ctx, builder) ->
+                            suggestPublicWaypoints(ctx.getSource(), builder, plugin.getWaypointManager(), false))
                         .executes(ctx -> executeTp(ctx, plugin, WaypointType.PUBLIC))))
                 .then(literal(TYPE_PRIVATE)
                     .then(argument("name", string)
-                        .suggests((ctx, builder) -> {
-                            CommandSourceStack source = ctx.getSource();
-                            if (source.getSender() instanceof Player player) {
-                                WaypointManager mgr = plugin.getWaypointManager();
-                                if (mgr != null) {
-                                    mgr.getPrivateWaypoints(player.getUniqueId()).stream()
-                                        .map(Waypoint::getName)
-                                        .filter(name -> name.startsWith(builder.getRemaining()))
-                                        .forEach(builder::suggest);
-                                }
-                            }
-                            return builder.buildFuture();
-                        })
+                        .suggests((ctx, builder) ->
+                            suggestPrivateWaypoints(ctx.getSource(), builder, plugin.getWaypointManager()))
                         .executes(ctx -> executeTp(ctx, plugin, WaypointType.PRIVATE))))
                 .then(literal("back")
                     .executes(ctx -> executeTpBack(ctx, plugin, 1))
@@ -193,19 +257,19 @@ public final class WaypointCommand {
                     && to.getBlockY() == ctx.startBlockY
                     && to.getBlockZ() == ctx.startBlockZ) return;
 
-                boolean cancelOnMove = plugin.getConfig().getBoolean("waypoint.teleport.countdown.cancel-on-move.enabled", true);
+                boolean cancelOnMove = ConfigCache.cancelOnMoveEnabled;
                 if (!cancelOnMove) return;
 
                 ACTIVE_COUNTDOWNS.remove(uuid);
                 ctx.task.cancel();
 
                 Player player = event.getPlayer();
-                String cancelSoundName = plugin.getConfig().getString("waypoint.teleport.countdown.cancel-on-move.sound.name", "block.anvil.place");
-                float cancelSoundVolume = (float) plugin.getConfig().getDouble("waypoint.teleport.countdown.cancel-on-move.sound.volume", 1.0);
-                float cancelSoundPitch = (float) plugin.getConfig().getDouble("waypoint.teleport.countdown.cancel-on-move.sound.pitch", 1.0);
+                String cancelSoundName = ConfigCache.cancelSoundName;
+                float cancelSoundVolume = ConfigCache.cancelSoundVolume;
+                float cancelSoundPitch = ConfigCache.cancelSoundPitch;
                 player.playSound(player.getLocation(), cancelSoundName, SoundCategory.MASTER, cancelSoundVolume, cancelSoundPitch);
 
-                String displayMode = plugin.getConfig().getString("waypoint.teleport.countdown.cancel-on-move.display", "chat");
+                String displayMode = ConfigCache.cancelDisplayMode;
                 displayCancelMessage(player, plugin, displayMode);
             }
         }, plugin);
@@ -220,37 +284,22 @@ public final class WaypointCommand {
             source.getSender().sendMessage(message);
             return 1;
         } catch (Exception e) {
-            plugin.getLogger().log(Level.SEVERE, "Failed to execute waypoint help command", e);
-            ctx.getSource().getSender().sendMessage(Component.text("An internal error occurred. Please try again."));
-            return 0;
+            return handleError(plugin, ctx, "Failed to execute waypoint help command", e);
         }
     }
 
     private static int executeCreate(CommandContext<CommandSourceStack> ctx, BringTeleportPlugin plugin, WaypointType type) {
         try {
-            CommandSourceStack source = ctx.getSource();
-            if (!(source.getSender() instanceof Player player)) {
-                source.getSender().sendMessage(getLocaleMessage(plugin, "waypoint.error.player-only"));
-                return 1;
-            }
+            Player player = resolvePlayer(ctx, plugin);
+            if (player == null) return 1;
 
             if (!player.hasPermission("bringteleport.waypoint.create")) {
                 player.sendMessage(getLocaleMessage(plugin, "waypoint.error.no-permission"));
                 return 0;
             }
 
-            String name;
-            try {
-                name = ctx.getArgument("name", String.class).trim();
-            } catch (IllegalArgumentException e) {
-                player.sendMessage(getLocaleMessage(plugin, "waypoint.error.name-required"));
-                return 1;
-            }
-
-            if (name.isEmpty()) {
-                player.sendMessage(getLocaleMessage(plugin, "waypoint.error.name-required"));
-                return 1;
-            }
+            String name = resolveName(ctx, plugin);
+            if (name == null) return 1;
 
             if (name.length() > 32) {
                 player.sendMessage(getLocaleMessage(plugin, "waypoint.error.name-too-long"));
@@ -291,37 +340,22 @@ public final class WaypointCommand {
 
             return 1;
         } catch (Exception e) {
-            plugin.getLogger().log(Level.SEVERE, "Failed to execute waypoint add command", e);
-            ctx.getSource().getSender().sendMessage(Component.text("An internal error occurred. Please try again."));
-            return 0;
+            return handleError(plugin, ctx, "Failed to execute waypoint add command", e);
         }
     }
 
     private static int executeDel(CommandContext<CommandSourceStack> ctx, BringTeleportPlugin plugin, WaypointType type) {
         try {
-            CommandSourceStack source = ctx.getSource();
-            if (!(source.getSender() instanceof Player player)) {
-                source.getSender().sendMessage(getLocaleMessage(plugin, "waypoint.error.player-only"));
-                return 1;
-            }
+            Player player = resolvePlayer(ctx, plugin);
+            if (player == null) return 1;
 
             if (!player.hasPermission("bringteleport.waypoint.del")) {
                 player.sendMessage(getLocaleMessage(plugin, "waypoint.error.no-permission"));
                 return 0;
             }
 
-            String name;
-            try {
-                name = ctx.getArgument("name", String.class).trim();
-            } catch (IllegalArgumentException e) {
-                player.sendMessage(getLocaleMessage(plugin, "waypoint.error.name-required"));
-                return 1;
-            }
-
-            if (name.isEmpty()) {
-                player.sendMessage(getLocaleMessage(plugin, "waypoint.error.name-required"));
-                return 1;
-            }
+            String name = resolveName(ctx, plugin);
+            if (name == null) return 1;
 
             WaypointManager manager = plugin.getWaypointManager();
             UUID ownerUuid = (type == WaypointType.PRIVATE) ? player.getUniqueId() : null;
@@ -345,8 +379,12 @@ public final class WaypointCommand {
             }
 
             // If delete-confirmation is enabled, set pending instead of deleting
-            if (plugin.getConfig().getBoolean("waypoint.delete-confirmation.enabled", true)) {
-                double timeoutSec = plugin.getConfig().getDouble("waypoint.delete-confirmation.timeout", 10.0);
+            if (ConfigCache.deleteConfirmationEnabled) {
+                double timeoutSec = ConfigCache.deleteConfirmationTimeout;
+                // C1: Clean up expired pending deletions for this player
+                PENDING_DELETIONS.entrySet().removeIf(entry ->
+                    entry.getKey().equals(player.getUniqueId())
+                        && System.currentTimeMillis() - entry.getValue().timestamp() > (long) (timeoutSec * 1000));
                 PENDING_DELETIONS.put(player.getUniqueId(), new PendingDeletion(name, type, System.currentTimeMillis()));
                 player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.delete.confirm-required",
                     Map.of("name", name, "timeout", String.valueOf(timeoutSec))));
@@ -365,9 +403,7 @@ public final class WaypointCommand {
                 Map.of("name", name, "type", typeLabel)));
             return 1;
         } catch (Exception e) {
-            plugin.getLogger().log(Level.SEVERE, "Failed to execute waypoint del command", e);
-            ctx.getSource().getSender().sendMessage(Component.text("An internal error occurred. Please try again."));
-            return 0;
+            return handleError(plugin, ctx, "Failed to execute waypoint del command", e);
         }
     }
 
@@ -390,7 +426,7 @@ public final class WaypointCommand {
                 return 1;
             }
 
-            double timeoutSec = plugin.getConfig().getDouble("waypoint.delete-confirmation.timeout", 10.0);
+            double timeoutSec = ConfigCache.deleteConfirmationTimeout;
             long timeoutMs = (long) (timeoutSec * 1000);
 
             if (System.currentTimeMillis() - pending.timestamp > timeoutMs) {
@@ -413,37 +449,22 @@ public final class WaypointCommand {
                 Map.of("name", pending.name)));
             return 1;
         } catch (Exception e) {
-            plugin.getLogger().log(Level.SEVERE, "Failed to execute waypoint confirm command", e);
-            ctx.getSource().getSender().sendMessage(Component.text("An internal error occurred. Please try again."));
-            return 0;
+            return handleError(plugin, ctx, "Failed to execute waypoint confirm command", e);
         }
     }
 
     private static int executeInfo(CommandContext<CommandSourceStack> ctx, BringTeleportPlugin plugin, WaypointType type) {
         try {
-            CommandSourceStack source = ctx.getSource();
-            if (!(source.getSender() instanceof Player player)) {
-                source.getSender().sendMessage(getLocaleMessage(plugin, "waypoint.error.player-only"));
-                return 1;
-            }
+            Player player = resolvePlayer(ctx, plugin);
+            if (player == null) return 1;
 
             if (!player.hasPermission("bringteleport.waypoint.info")) {
                 player.sendMessage(getLocaleMessage(plugin, "waypoint.error.no-permission"));
                 return 0;
             }
 
-            String name;
-            try {
-                name = ctx.getArgument("name", String.class).trim();
-            } catch (IllegalArgumentException e) {
-                player.sendMessage(getLocaleMessage(plugin, "waypoint.error.name-required"));
-                return 1;
-            }
-
-            if (name.isEmpty()) {
-                player.sendMessage(getLocaleMessage(plugin, "waypoint.error.name-required"));
-                return 1;
-            }
+            String name = resolveName(ctx, plugin);
+            if (name == null) return 1;
 
             WaypointManager manager = plugin.getWaypointManager();
             UUID ownerUuid = (type == WaypointType.PRIVATE) ? player.getUniqueId() : null;
@@ -490,9 +511,7 @@ public final class WaypointCommand {
             player.sendMessage(MiniMessage.miniMessage().deserialize(info));
             return 1;
         } catch (Exception e) {
-            plugin.getLogger().log(Level.SEVERE, "Failed to execute waypoint info command", e);
-            ctx.getSource().getSender().sendMessage(Component.text("An internal error occurred. Please try again."));
-            return 0;
+            return handleError(plugin, ctx, "Failed to execute waypoint info command", e);
         }
     }
 
@@ -509,29 +528,16 @@ public final class WaypointCommand {
 
     private static int executeTp(CommandContext<CommandSourceStack> ctx, BringTeleportPlugin plugin, WaypointType type) {
         try {
-            CommandSourceStack source = ctx.getSource();
-            if (!(source.getSender() instanceof Player player)) {
-                source.getSender().sendMessage(getLocaleMessage(plugin, "waypoint.error.player-only"));
-                return 1;
-            }
+            Player player = resolvePlayer(ctx, plugin);
+            if (player == null) return 1;
 
             if (!player.hasPermission("bringteleport.waypoint.tp")) {
                 player.sendMessage(getLocaleMessage(plugin, "waypoint.error.no-permission"));
                 return 0;
             }
 
-            String name;
-            try {
-                name = ctx.getArgument("name", String.class).trim();
-            } catch (IllegalArgumentException e) {
-                player.sendMessage(getLocaleMessage(plugin, "waypoint.error.name-required"));
-                return 1;
-            }
-
-            if (name.isEmpty()) {
-                player.sendMessage(getLocaleMessage(plugin, "waypoint.error.name-required"));
-                return 1;
-            }
+            String name = resolveName(ctx, plugin);
+            if (name == null) return 1;
 
             WaypointManager manager = plugin.getWaypointManager();
             UUID ownerUuid = (type == WaypointType.PRIVATE) ? player.getUniqueId() : null;
@@ -552,12 +558,12 @@ public final class WaypointCommand {
                 return 1;
             }
 
-            boolean countdownEnabled = plugin.getConfig().getBoolean("waypoint.teleport.countdown.enabled", true);
-            double delaySec = plugin.getConfig().getDouble("waypoint.teleport.countdown.delay", 3.0);
+            boolean countdownEnabled = ConfigCache.countdownEnabled;
+            double delaySec = ConfigCache.countdownDelay;
             if (countdownEnabled && delaySec > 0) {
-                double intervalSec = plugin.getConfig().getDouble("waypoint.teleport.countdown.interval", 1.0);
+                double intervalSec = ConfigCache.countdownInterval;
                 final double tickInterval = intervalSec > 0 ? intervalSec : 1.0;
-                String displayMode = plugin.getConfig().getString("waypoint.teleport.countdown.display", "subtitle");
+                String displayMode = ConfigCache.countdownDisplayMode;
                 Location playerLoc = player.getLocation();
                 Location targetLoc = location;
                 String wpName = name;
@@ -568,11 +574,11 @@ public final class WaypointCommand {
                 int totalSteps = (int) Math.ceil(delaySec / tickInterval);
                 long intervalTicks = Math.max(1, (long) (tickInterval * 20));
 
-                boolean soundEnabled = plugin.getConfig().getBoolean("waypoint.teleport.countdown.sound.enabled", true);
-                String soundName = plugin.getConfig().getString("waypoint.teleport.countdown.sound.name", "block.note_block.pling");
-                int soundInterval = plugin.getConfig().getInt("waypoint.teleport.countdown.sound.interval", 1);
-                float soundVolume = (float) plugin.getConfig().getDouble("waypoint.teleport.countdown.sound.volume", 1.0);
-                float soundPitch = (float) plugin.getConfig().getDouble("waypoint.teleport.countdown.sound.pitch", 1.0);
+                boolean soundEnabled = ConfigCache.countdownSoundEnabled;
+                String soundName = ConfigCache.countdownSoundName;
+                int soundInterval = ConfigCache.countdownSoundInterval;
+                float soundVolume = ConfigCache.countdownSoundVolume;
+                float soundPitch = ConfigCache.countdownSoundPitch;
 
                 int startBlockX = playerLoc.getBlockX();
                 int startBlockY = playerLoc.getBlockY();
@@ -623,14 +629,7 @@ public final class WaypointCommand {
                         String chatRaw = plugin.getLocaleManager().getRaw("waypoint.tp.countdown.chat")
                             .replace("{seconds}", secStr);
 
-                        var times = Title.Times.times(Duration.ZERO, Duration.ofSeconds(1), Duration.ofMillis(250));
-
-                        switch (displayMode) {
-                            case "title" -> player.showTitle(Title.title(cTitle, Component.empty(), times));
-                            case "subtitle" -> player.showTitle(Title.title(Component.empty(), cSubtitle, times));
-                            case "both" -> player.showTitle(Title.title(cTitle, cSubtitle, times));
-                            case "chat" -> player.sendMessage(MiniMessage.miniMessage().deserialize(chatRaw));
-                        }
+                        sendDisplayMessage(player, cTitle, cSubtitle, MiniMessage.miniMessage().deserialize(chatRaw), displayMode);
 
                         step++;
                     }
@@ -646,9 +645,7 @@ public final class WaypointCommand {
 
             return 1;
         } catch (Exception e) {
-            plugin.getLogger().log(Level.SEVERE, "Failed to execute waypoint tp command", e);
-            ctx.getSource().getSender().sendMessage(Component.text("An internal error occurred. Please try again."));
-            return 0;
+            return handleError(plugin, ctx, "Failed to execute waypoint tp command", e);
         }
     }
 
@@ -686,9 +683,7 @@ public final class WaypointCommand {
                 Map.of("steps", String.valueOf(steps))));
             return 1;
         } catch (Exception e) {
-            plugin.getLogger().log(Level.SEVERE, "Failed to execute waypoint tp back command", e);
-            ctx.getSource().getSender().sendMessage(Component.text("An internal error occurred. Please try again."));
-            return 0;
+            return handleError(plugin, ctx, "Failed to execute waypoint tp back command", e);
         }
     }
 
@@ -716,65 +711,35 @@ public final class WaypointCommand {
             player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.tp.back.undo-success", null));
             return 1;
         } catch (Exception e) {
-            plugin.getLogger().log(Level.SEVERE, "Failed to execute waypoint tp back undo command", e);
-            ctx.getSource().getSender().sendMessage(Component.text("An internal error occurred. Please try again."));
-            return 0;
+            return handleError(plugin, ctx, "Failed to execute waypoint tp back undo command", e);
         }
     }
 
     private static void sendTeleportSuccess(Player player, BringTeleportPlugin plugin, String waypointName) {
-        String displayMode = plugin.getConfig().getString("waypoint.teleport.success.display", "title");
+        String displayMode = ConfigCache.successDisplayMode;
 
-        boolean soundEnabled = plugin.getConfig().getBoolean("waypoint.teleport.success.sound.enabled", true);
+        boolean soundEnabled = ConfigCache.successSoundEnabled;
         if (soundEnabled) {
-            String soundName = plugin.getConfig().getString("waypoint.teleport.success.sound.name", "entity.player.levelup");
-            float volume = (float) plugin.getConfig().getDouble("waypoint.teleport.success.sound.volume", 1.0);
-            float pitch = (float) plugin.getConfig().getDouble("waypoint.teleport.success.sound.pitch", 1.0);
+            String soundName = ConfigCache.successSoundName;
+            float volume = ConfigCache.successSoundVolume;
+            float pitch = ConfigCache.successSoundPitch;
             player.playSound(player.getLocation(), soundName, SoundCategory.MASTER, volume, pitch);
         }
 
-        switch (displayMode) {
-            case "title" -> {
-                String titleRaw = plugin.getLocaleManager().getRaw("waypoint.tp.success.title")
-                    .replace("{name}", waypointName);
-                player.showTitle(Title.title(MiniMessage.miniMessage().deserialize(titleRaw), Component.empty(),
-                    Title.Times.times(Duration.ZERO, Duration.ofSeconds(1), Duration.ofMillis(250))));
-            }
-            case "subtitle" -> {
-                String subtitleRaw = plugin.getLocaleManager().getRaw("waypoint.tp.success.subtitle")
-                    .replace("{name}", waypointName);
-                player.showTitle(Title.title(Component.empty(), MiniMessage.miniMessage().deserialize(subtitleRaw),
-                    Title.Times.times(Duration.ZERO, Duration.ofSeconds(1), Duration.ofMillis(250))));
-            }
-            case "both" -> {
-                String titleRaw = plugin.getLocaleManager().getRaw("waypoint.tp.success.title")
-                    .replace("{name}", waypointName);
-                String subtitleRaw = plugin.getLocaleManager().getRaw("waypoint.tp.success.subtitle")
-                    .replace("{name}", waypointName);
-                player.showTitle(Title.title(
-                    MiniMessage.miniMessage().deserialize(titleRaw),
-                    MiniMessage.miniMessage().deserialize(subtitleRaw),
-                    Title.Times.times(Duration.ZERO, Duration.ofSeconds(1), Duration.ofMillis(250))));
-            }
-            default -> player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.tp.success.chat",
-                Map.of("name", waypointName)));
-        }
+        Component titleComp = MiniMessage.miniMessage().deserialize(
+            plugin.getLocaleManager().getRaw("waypoint.tp.success.title").replace("{name}", waypointName));
+        Component subtitleComp = MiniMessage.miniMessage().deserialize(
+            plugin.getLocaleManager().getRaw("waypoint.tp.success.subtitle").replace("{name}", waypointName));
+        Component chatComp = plugin.getLocaleManager().getMessage("waypoint.tp.success.chat",
+            Map.of("name", waypointName));
+        sendDisplayMessage(player, titleComp, subtitleComp, chatComp, displayMode);
     }
 
     private static void displayCancelMessage(Player player, BringTeleportPlugin plugin, String displayMode) {
         String text = plugin.getLocaleManager().getRaw("waypoint.tp.countdown.cancelled");
-        switch (displayMode) {
-            case "title" -> player.showTitle(Title.title(
-                MiniMessage.miniMessage().deserialize(text), Component.empty(),
-                Title.Times.times(Duration.ZERO, Duration.ofSeconds(1), Duration.ofMillis(250))));
-            case "subtitle" -> player.showTitle(Title.title(
-                Component.empty(), MiniMessage.miniMessage().deserialize(text),
-                Title.Times.times(Duration.ZERO, Duration.ofSeconds(1), Duration.ofMillis(250))));
-            case "both" -> player.showTitle(Title.title(
-                MiniMessage.miniMessage().deserialize(text), MiniMessage.miniMessage().deserialize(text),
-                Title.Times.times(Duration.ZERO, Duration.ofSeconds(1), Duration.ofMillis(250))));
-            default -> player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.tp.countdown.cancelled", null));
-        }
+        Component comp = MiniMessage.miniMessage().deserialize(text);
+        Component chatComp = plugin.getLocaleManager().getMessage("waypoint.tp.countdown.cancelled", null);
+        sendDisplayMessage(player, comp, comp, chatComp, displayMode);
     }
 
     private static Component getLocaleMessage(BringTeleportPlugin plugin, String path) {
@@ -784,5 +749,23 @@ public final class WaypointCommand {
     private static String getTypeLabel(BringTeleportPlugin plugin, WaypointType type) {
         String key = type == WaypointType.PUBLIC ? "waypoint.info.type.public" : "waypoint.info.type.private";
         return plugin.getLocaleManager().getRaw(key);
+    }
+
+    // ===== A3: Unified display message =====
+    private static void sendDisplayMessage(Player player, Component titleComponent, Component subtitleComponent, Component chatComponent, String displayMode) {
+        var times = Title.Times.times(Duration.ZERO, Duration.ofSeconds(1), Duration.ofMillis(250));
+        switch (displayMode) {
+            case "title" -> player.showTitle(Title.title(titleComponent, Component.empty(), times));
+            case "subtitle" -> player.showTitle(Title.title(Component.empty(), subtitleComponent, times));
+            case "both" -> player.showTitle(Title.title(titleComponent, subtitleComponent, times));
+            default -> player.sendMessage(chatComponent);
+        }
+    }
+
+    // ===== A4: Unified error handler =====
+    static int handleError(BringTeleportPlugin plugin, CommandContext<CommandSourceStack> ctx, String errorMsg, Exception e) {
+        plugin.getLogger().log(Level.SEVERE, errorMsg, e);
+        ctx.getSource().getSender().sendMessage(Component.text("An internal error occurred. Please try again."));
+        return 0;
     }
 }

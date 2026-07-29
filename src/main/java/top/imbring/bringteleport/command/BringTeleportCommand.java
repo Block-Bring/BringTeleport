@@ -6,8 +6,6 @@ import io.papermc.paper.command.brigadier.Commands;
 import net.kyori.adventure.text.Component;
 import top.imbring.bringteleport.BringTeleportPlugin;
 
-import java.util.logging.Level;
-
 import static io.papermc.paper.command.brigadier.Commands.literal;
 
 public final class BringTeleportCommand {
@@ -40,9 +38,7 @@ public final class BringTeleportCommand {
                 plugin.getLocaleManager().getMessage("bringteleport.reload.success", null));
             return 1;
         } catch (Exception e) {
-            plugin.getLogger().log(Level.SEVERE, "Failed to reload plugin", e);
-            ctx.getSource().getSender().sendMessage(Component.text("An internal error occurred. Please try again."));
-            return 0;
+            return WaypointCommand.handleError(plugin, ctx, "Failed to reload plugin", e);
         }
     }
 
@@ -53,9 +49,7 @@ public final class BringTeleportCommand {
             source.getSender().sendMessage(message);
             return 1;
         } catch (Exception e) {
-            plugin.getLogger().log(Level.SEVERE, "Failed to execute bringteleport help command", e);
-            ctx.getSource().getSender().sendMessage(Component.text("An internal error occurred. Please try again."));
-            return 0;
+            return WaypointCommand.handleError(plugin, ctx, "Failed to execute bringteleport help command", e);
         }
     }
 }
