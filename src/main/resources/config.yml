@@ -19,7 +19,7 @@ waypoint:
       # 倒计时更新频率（秒），1 = 每秒更新，0.1 = 每 0.1 秒更新
       interval: 1.0
       # 倒计时显示方式: subtitle / title / both / chat
-      display: "subtitle"
+      display: "both"
       sound:
         # 是否启用倒计时提示音
         enabled: true
