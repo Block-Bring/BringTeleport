@@ -1,1 +1,5 @@
 blank_issues_enabled: true
+contact_links:
+  - name: 💬 讨论 / 问题
+    url: https://github.com/Block-Bring/BringTeleport/discussions
+    about: 非 bug 或功能建议类的其他问题请走 Discussion

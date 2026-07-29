@@ -1,12 +1,13 @@
-name: 功能建议
-description: 想要个新功能或者改进
+name: ✨ 功能建议
+description: 想要个新功能
 labels: [enhancement]
+title: "✨ "
 body:
   - type: textarea
     id: problem
     attributes:
       label: 相关痛点
-      description: 是什么场景/需求让你想要这个功能？
+      description: 是什么场景或需求让你想要这个功能？
     validations:
       required: true
 
