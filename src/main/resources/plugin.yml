@@ -1,6 +1,6 @@
 name: ${name}
 version: ${version}
-api-version: 26.1
+api-version: "${apiVersion}"
 author: Block_Bring
 main: top.imbring.bringteleport.BringTeleportPlugin
 
