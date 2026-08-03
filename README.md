@@ -1,6 +1,6 @@
 # BringTeleport
 
-一个 Paper 26.1.2 的传送插件，目前包含路径点功能，后续将支持更多传送方式。
+一个支持 Paper 1.21.1 ~ 26.2 的传送插件，目前包含路径点功能，后续将支持更多传送方式。
 
 ## 功能概览
 
@@ -100,7 +100,7 @@ bringteleport.*  默认 op  所有 BringTeleport 权限
 ./gradlew build
 ```
 
-产物在 `build/libs/BringTeleport-Paper-26.1.2-<version>.jar`。
+产物在 `build/libs/BringTeleport-Paper-<version>.jar`。
 
 ## 安装
 
