@@ -17,6 +17,7 @@ gradle-8.13-bin.zip
 
 # Claude Code
 .claude/
+CLAUDE.md
 
 # Changelog
 LOG.md
