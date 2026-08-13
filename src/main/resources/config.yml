@@ -17,14 +17,14 @@ waypoint:
       # 传送延迟（秒）
       delay: 3.0
       # 倒计时更新频率（秒），1 = 每秒更新，0.1 = 每 0.1 秒更新
-      interval: 1.0
+      interval: 1
       # 倒计时显示方式: subtitle / title / both / chat
       display: "both"
       sound:
         # 是否启用倒计时提示音
         enabled: true
         # 声音名称（可省略命名空间，如 block.note_block.pling）
-        name: "block.note_block.pling"
+        name: "entity.experience_orb.pickup"
         # 提示音播放间隔（每 N 次倒计时更新播放一次），1 = 每次更新都播放
         interval: 1
         # 音量（0.0 - 1.0）

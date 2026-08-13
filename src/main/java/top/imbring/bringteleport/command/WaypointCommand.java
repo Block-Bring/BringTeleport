@@ -2,6 +2,8 @@ package top.imbring.bringteleport.command;
 
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.context.CommandContext;
+import com.mojang.brigadier.context.StringRange;
+import com.mojang.brigadier.suggestion.Suggestion;
 import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
@@ -11,7 +13,9 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.title.Title;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.SoundCategory;
+import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -28,9 +32,11 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.logging.Level;
@@ -48,6 +54,8 @@ public final class WaypointCommand {
 
     private record PendingDeletion(String name, WaypointType type, long timestamp) {}
     private record CountdownContext(BukkitTask task, int startBlockX, int startBlockY, int startBlockZ) {}
+    // ownerName 为 null 表示操作者自己的私有路径点（仅玩家场景）
+    private record PrivateTarget(String ownerName, String name) {}
 
     // ===== B2: Configuration cache =====
     private static class ConfigCache {
@@ -132,8 +140,46 @@ public final class WaypointCommand {
                 .map(Waypoint::getName)
                 .filter(name -> name.startsWith(builder.getRemaining()))
                 .forEach(builder::suggest);
+            return builder.buildFuture();
         }
-        return builder.buildFuture();
+
+        // 控制台：第一个参数建议玩家名，之后建议该玩家的私有路径点
+        // getRemaining() 只含当前参数内已输入的内容（不含命令前缀）。
+        // 自定义替换范围只覆盖当前正在输入的最后一个 token，避免覆盖已输入的玩家名。
+        String typed = builder.getRemaining();
+        String prefix = typed.substring(typed.lastIndexOf(' ') + 1);
+        StringRange replaceRange = StringRange.between(builder.getStart() + typed.lastIndexOf(' ') + 1, builder.getInput().length());
+
+        List<String> candidates;
+        if (!typed.contains(" ")) {
+            // 正在输入第一个参数：建议玩家名
+            Set<String> names = new HashSet<>();
+            for (Player online : Bukkit.getOnlinePlayers()) {
+                names.add(online.getName());
+            }
+            for (UUID uuid : mgr.getPrivateWaypointOwners()) {
+                String name = Bukkit.getOfflinePlayer(uuid).getName();
+                if (name != null) names.add(name);
+            }
+            candidates = names.stream()
+                .filter(name -> name.startsWith(prefix))
+                .toList();
+        } else {
+            // 已指定玩家名：建议该玩家的私有路径点
+            String ownerName = typed.trim().split("\\s+")[0];
+            candidates = mgr.getPrivateWaypoints(resolvePlayerByName(ownerName).getUniqueId()).stream()
+                .map(Waypoint::getName)
+                .filter(name -> name.startsWith(prefix))
+                .toList();
+        }
+
+        if (candidates.isEmpty()) {
+            return Suggestions.empty();
+        }
+        List<Suggestion> suggestions = candidates.stream()
+            .map(name -> new Suggestion(replaceRange, name))
+            .toList();
+        return CompletableFuture.completedFuture(new Suggestions(replaceRange, suggestions));
     }
 
     // ===== A2: Player & name resolution helpers =====
@@ -158,6 +204,61 @@ public final class WaypointCommand {
             ctx.getSource().getSender().sendMessage(getLocaleMessage(plugin, "waypoint.error.name-required"));
             return null;
         }
+    }
+
+    // 私有路径点参数：玩家输入整个字符串即路径点名称；控制台需以 <玩家名> 开头指定所有者
+    private static PrivateTarget resolvePrivateTarget(CommandContext<CommandSourceStack> ctx, BringTeleportPlugin plugin) {
+        CommandSourceStack source = ctx.getSource();
+        String raw = ctx.getArgument("name", String.class).trim();
+
+        if (source.getSender() instanceof Player) {
+            if (raw.isEmpty()) {
+                source.getSender().sendMessage(getLocaleMessage(plugin, "waypoint.error.name-required"));
+                return null;
+            }
+            return new PrivateTarget(null, raw);
+        }
+
+        int idx = raw.indexOf(' ');
+        if (idx <= 0) {
+            source.getSender().sendMessage(getLocaleMessage(plugin, "waypoint.error.player-required"));
+            return null;
+        }
+        String ownerName = raw.substring(0, idx);
+        String name = raw.substring(idx + 1).trim();
+        if (name.isEmpty()) {
+            source.getSender().sendMessage(getLocaleMessage(plugin, "waypoint.error.name-required"));
+            return null;
+        }
+        return new PrivateTarget(ownerName, name);
+    }
+
+    // 解析玩家名：优先在线玩家（忽略大小写），其次离线缓存
+    private static OfflinePlayer resolvePlayerByName(String name) {
+        Player exact = Bukkit.getPlayerExact(name);
+        if (exact != null) return exact;
+        for (Player online : Bukkit.getOnlinePlayers()) {
+            if (online.getName().equalsIgnoreCase(name)) return online;
+        }
+        return Bukkit.getOfflinePlayer(name);
+    }
+
+    // 私有路径点所有者：指定了玩家名则解析为离线玩家 UUID，否则为操作者本人
+    private static UUID resolveOwnerUuid(CommandSourceStack source, String ownerName, BringTeleportPlugin plugin) {
+        if (ownerName != null) {
+            OfflinePlayer owner = resolvePlayerByName(ownerName);
+            if (!owner.isOnline() && owner.getName() == null && !owner.hasPlayedBefore()) {
+                source.getSender().sendMessage(plugin.getLocaleManager().getMessage("waypoint.error.player-not-found",
+                    Map.of("player", ownerName)));
+                return null;
+            }
+            return owner.getUniqueId();
+        }
+        if (source.getSender() instanceof Player player) {
+            return player.getUniqueId();
+        }
+        source.getSender().sendMessage(getLocaleMessage(plugin, "waypoint.error.player-required"));
+        return null;
     }
 
     // ===== C2: Cancel all active countdowns =====
@@ -346,22 +447,30 @@ public final class WaypointCommand {
 
     private static int executeDel(CommandContext<CommandSourceStack> ctx, BringTeleportPlugin plugin, WaypointType type) {
         try {
-            Player player = resolvePlayer(ctx, plugin);
-            if (player == null) return 1;
-
-            if (!player.hasPermission("bringteleport.waypoint.del")) {
-                player.sendMessage(getLocaleMessage(plugin, "waypoint.error.no-permission"));
+            CommandSourceStack source = ctx.getSource();
+            CommandSender sender = source.getSender();
+            if (!sender.hasPermission("bringteleport.waypoint.del")) {
+                sender.sendMessage(getLocaleMessage(plugin, "waypoint.error.no-permission"));
                 return 0;
             }
 
-            String name = resolveName(ctx, plugin);
-            if (name == null) return 1;
+            String name;
+            UUID ownerUuid = null;
+            if (type == WaypointType.PRIVATE) {
+                PrivateTarget target = resolvePrivateTarget(ctx, plugin);
+                if (target == null) return 1;
+                name = target.name();
+                ownerUuid = resolveOwnerUuid(source, target.ownerName(), plugin);
+                if (ownerUuid == null) return 1;
+            } else {
+                name = resolveName(ctx, plugin);
+                if (name == null) return 1;
+            }
 
             WaypointManager manager = plugin.getWaypointManager();
-            UUID ownerUuid = (type == WaypointType.PRIVATE) ? player.getUniqueId() : null;
 
-            // For public waypoints, check ownership
-            if (type == WaypointType.PUBLIC) {
+            // 公有路径点的所有者检查仅对玩家生效，控制台视为管理员
+            if (type == WaypointType.PUBLIC && sender instanceof Player player) {
                 Optional<Waypoint> existing = manager.getWaypoint(name, WaypointType.PUBLIC, null);
                 if (existing.isEmpty()) {
                     player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.delete.not-found",
@@ -378,8 +487,8 @@ public final class WaypointCommand {
                 }
             }
 
-            // If delete-confirmation is enabled, set pending instead of deleting
-            if (ConfigCache.deleteConfirmationEnabled) {
+            // 删除确认仅对玩家生效，控制台直接删除
+            if (ConfigCache.deleteConfirmationEnabled && sender instanceof Player player) {
                 double timeoutSec = ConfigCache.deleteConfirmationTimeout;
                 // C1: Clean up expired pending deletions for this player
                 PENDING_DELETIONS.entrySet().removeIf(entry ->
@@ -393,13 +502,13 @@ public final class WaypointCommand {
 
             if (!manager.deleteWaypoint(name, type, ownerUuid)) {
                 String typeLabel = type == WaypointType.PUBLIC ? "public" : "private";
-                player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.delete.not-found",
+                sender.sendMessage(plugin.getLocaleManager().getMessage("waypoint.delete.not-found",
                     Map.of("name", name, "type", typeLabel)));
                 return 1;
             }
 
             String typeLabel = type == WaypointType.PUBLIC ? "public" : "private";
-            player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.delete.success",
+            sender.sendMessage(plugin.getLocaleManager().getMessage("waypoint.delete.success",
                 Map.of("name", name, "type", typeLabel)));
             return 1;
         } catch (Exception e) {
@@ -455,24 +564,32 @@ public final class WaypointCommand {
 
     private static int executeInfo(CommandContext<CommandSourceStack> ctx, BringTeleportPlugin plugin, WaypointType type) {
         try {
-            Player player = resolvePlayer(ctx, plugin);
-            if (player == null) return 1;
-
-            if (!player.hasPermission("bringteleport.waypoint.info")) {
-                player.sendMessage(getLocaleMessage(plugin, "waypoint.error.no-permission"));
+            CommandSourceStack source = ctx.getSource();
+            CommandSender sender = source.getSender();
+            if (!sender.hasPermission("bringteleport.waypoint.info")) {
+                sender.sendMessage(getLocaleMessage(plugin, "waypoint.error.no-permission"));
                 return 0;
             }
 
-            String name = resolveName(ctx, plugin);
-            if (name == null) return 1;
+            String name;
+            UUID ownerUuid = null;
+            if (type == WaypointType.PRIVATE) {
+                PrivateTarget target = resolvePrivateTarget(ctx, plugin);
+                if (target == null) return 1;
+                name = target.name();
+                ownerUuid = resolveOwnerUuid(source, target.ownerName(), plugin);
+                if (ownerUuid == null) return 1;
+            } else {
+                name = resolveName(ctx, plugin);
+                if (name == null) return 1;
+            }
 
             WaypointManager manager = plugin.getWaypointManager();
-            UUID ownerUuid = (type == WaypointType.PRIVATE) ? player.getUniqueId() : null;
 
             Optional<Waypoint> opt = manager.getWaypoint(name, type, ownerUuid);
             if (opt.isEmpty()) {
                 var typeLabel = getTypeLabel(plugin, type);
-                player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.info.not-found",
+                sender.sendMessage(plugin.getLocaleManager().getMessage("waypoint.info.not-found",
                     Map.of("name", name, "type", typeLabel)));
                 return 1;
             }
@@ -508,7 +625,7 @@ public final class WaypointCommand {
                 .replace("{z}", String.format("%.0f", waypoint.getZ()))
                 .replace("{date}", formattedDate);
 
-            player.sendMessage(MiniMessage.miniMessage().deserialize(info));
+            sender.sendMessage(MiniMessage.miniMessage().deserialize(info));
             return 1;
         } catch (Exception e) {
             return handleError(plugin, ctx, "Failed to execute waypoint info command", e);

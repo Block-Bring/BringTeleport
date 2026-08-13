@@ -51,6 +51,8 @@ bringteleport.reload  默认 op  重载插件配置文件
 
 别名：`/wp`
 
+> 服务器控制台（后台）也可执行 `info` / `delete` 命令；操作私有路径点时需指定玩家名，如 `/waypoint info private <玩家名> <name>`，控制台删除直接生效、不经过确认。
+
 ### 权限
 
 ```

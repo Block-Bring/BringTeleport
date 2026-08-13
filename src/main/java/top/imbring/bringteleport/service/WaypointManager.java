@@ -176,6 +176,23 @@ public class WaypointManager {
     }
 
     /**
+     * List all players who own at least one private waypoint.
+     */
+    public List<UUID> getPrivateWaypointOwners() {
+        List<UUID> owners = new ArrayList<>();
+        String sql = "SELECT DISTINCT owner_uuid FROM waypoints WHERE type = 'PRIVATE' AND owner_uuid IS NOT NULL";
+        try (Statement stmt = getConnection().createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            while (rs.next()) {
+                owners.add(UUID.fromString(rs.getString("owner_uuid")));
+            }
+        } catch (SQLException e) {
+            this.plugin.getLogger().log(Level.SEVERE, "Failed to list private waypoint owners", e);
+        }
+        return owners;
+    }
+
+    /**
      * List all private waypoints for a player.
      */
     public List<Waypoint> getPrivateWaypoints(UUID ownerUuid) {
