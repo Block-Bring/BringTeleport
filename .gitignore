@@ -27,3 +27,7 @@ LOG.md
 .reasonix/
 log/
 reasonix.toml
+
+# Codex
+.codex/
+AGENTS.md
