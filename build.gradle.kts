@@ -38,6 +38,12 @@ tasks {
         options.encoding = "UTF-8"
     }
 
+    // 裸 jar 不含任何依赖，单独放进服务器会因缺 sqlite 驱动而不可用，
+    // 禁用以免与 shadow 产物混淆
+    jar {
+        enabled = false
+    }
+
     processResources {
         filteringCharset = "UTF-8"
         filesMatching("plugin.yml") {

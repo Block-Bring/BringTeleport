@@ -4,6 +4,12 @@
 # 是否在消息前显示插件前缀
 prefix-enabled: true
 
+# 路径点信息中时间的显示时区（数据库存的是 UTC 时间，显示时转换到此区）
+# 可直接填写与 UTC 的偏移，如 +8、-5、+08:30（无正负号按正偏移算）
+# 也可填写 IANA 时区名，如 Asia/Shanghai、UTC、America/New_York
+# 填 system 或留空则使用服务器系统时区
+timezone: "+8"
+
 waypoint:
   delete-confirmation:
     # 是否启用删除确认

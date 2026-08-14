@@ -25,6 +25,9 @@ permissions:
   bringteleport.waypoint.info:
     description: 查看路径点信息
     default: true
+  bringteleport.waypoint.rename:
+    description: 重命名路径点
+    default: true
   bringteleport.waypoint.tp:
     description: 传送至路径点
     default: true
@@ -38,6 +41,7 @@ permissions:
       bringteleport.waypoint.del: true
       bringteleport.waypoint.del.other: true
       bringteleport.waypoint.info: true
+      bringteleport.waypoint.rename: true
       bringteleport.waypoint.tp: true
   bringteleport.*:
     description: 所有 BringTeleport 权限

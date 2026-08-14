@@ -41,6 +41,8 @@ bringteleport.reload  默认 op  重载插件配置文件
 | `/waypoint create private <name>` | 创建私有路径点 | bringteleport.waypoint.create |
 | `/waypoint delete public <name>` | 删除公有路径点 | bringteleport.waypoint.del |
 | `/waypoint delete private <name>` | 删除私有路径点 | bringteleport.waypoint.del |
+| `/waypoint rename public <name>` | 重命名公有路径点（执行后按提示在聊天框输入新名字） | bringteleport.waypoint.rename |
+| `/waypoint rename private <name>` | 重命名私有路径点（执行后按提示在聊天框输入新名字） | bringteleport.waypoint.rename |
 | `/waypoint info public <name>` | 查看公有路径点信息 | bringteleport.waypoint.info |
 | `/waypoint info private <name>` | 查看私有路径点信息 | bringteleport.waypoint.info |
 | `/waypoint tp public <name>` | 传送到公有路径点 | bringteleport.waypoint.tp |
@@ -51,7 +53,7 @@ bringteleport.reload  默认 op  重载插件配置文件
 
 别名：`/wp`
 
-> 服务器控制台（后台）也可执行 `info` / `delete` 命令；操作私有路径点时需指定玩家名，如 `/waypoint info private <玩家名> <name>`，控制台删除直接生效、不经过确认。
+> 服务器控制台（后台）也可执行 `info` / `delete` / `rename` 命令；操作私有路径点时需指定玩家名，如 `/waypoint info private <玩家名> <name>`，控制台删除直接生效、不经过确认；控制台重命名直接给两个参数：`/waypoint rename public <name> <新名字>`、`/waypoint rename private <玩家名> <name> <新名字>`。
 
 ### 权限
 
@@ -61,6 +63,7 @@ bringteleport.waypoint.create     默认 true  创建路径点
 bringteleport.waypoint.del        默认 true  删除路径点
 bringteleport.waypoint.del.other  默认 op    删除其他玩家的公有路径点
 bringteleport.waypoint.info       默认 true  查看路径点信息
+bringteleport.waypoint.rename     默认 true  重命名路径点
 bringteleport.waypoint.tp         默认 true  传送至路径点
 ```
 
@@ -87,6 +90,7 @@ bringteleport.*  默认 op  所有 BringTeleport 权限
     bringteleport.waypoint.del        默认 true  删除路径点
     bringteleport.waypoint.del.other  默认 op    删除其他玩家的公有路径点
     bringteleport.waypoint.info       默认 true  查看路径点信息
+    bringteleport.waypoint.rename     默认 true  重命名路径点
     bringteleport.waypoint.tp         默认 true  传送至路径点
 ```
 

@@ -2,6 +2,7 @@ package top.imbring.bringteleport.locale;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -14,6 +15,7 @@ public class LocaleManager {
     private final JavaPlugin plugin;
     private final MiniMessage miniMessage;
     private final Map<String, Component> messageCache;
+    private final Map<String, String> worldNames = new HashMap<>();
     private YamlConfiguration locale;
     private boolean prefixEnabled;
     private Component prefix;
@@ -33,6 +35,22 @@ public class LocaleManager {
         this.prefixEnabled = plugin.getConfig().getBoolean("prefix-enabled", true);
         String prefixStr = this.locale.getString("bringteleport.prefix", "");
         this.prefix = prefixStr.isEmpty() ? null : this.miniMessage.deserialize(prefixStr);
+
+        this.worldNames.clear();
+        ConfigurationSection section = this.locale.getConfigurationSection("world-names");
+        if (section != null) {
+            for (String key : section.getKeys(false)) {
+                String display = section.getString(key);
+                if (display != null && !display.isBlank()) {
+                    this.worldNames.put(key, display);
+                }
+            }
+        }
+    }
+
+    // 世界显示名：有映射返回映射名，否则返回世界原名
+    public String getWorldName(String world) {
+        return worldNames.getOrDefault(world, world);
     }
 
     public Component getMessage(String path, Map<String, String> placeholders) {

@@ -129,6 +129,34 @@ public class WaypointManager {
     }
 
     /**
+     * Rename a waypoint.
+     * @return true if renamed, false if not found or new name conflicts with an existing waypoint
+     */
+    public boolean renameWaypoint(String name, WaypointType type, UUID ownerUuid, String newName) {
+        String sql;
+        if (type == WaypointType.PUBLIC) {
+            sql = "UPDATE waypoints SET name = ? WHERE name = ? AND type = 'PUBLIC'";
+        } else {
+            sql = "UPDATE waypoints SET name = ? WHERE name = ? AND type = 'PRIVATE' AND owner_uuid = ?";
+        }
+
+        try (PreparedStatement pstmt = getConnection().prepareStatement(sql)) {
+            pstmt.setString(1, newName);
+            pstmt.setString(2, name);
+            if (type == WaypointType.PRIVATE) {
+                pstmt.setString(3, ownerUuid.toString());
+            }
+            return pstmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            if (e.getMessage() != null && e.getMessage().contains("UNIQUE")) {
+                return false;
+            }
+            this.plugin.getLogger().log(Level.SEVERE, "Failed to rename waypoint", e);
+            return false;
+        }
+    }
+
+    /**
      * Get a waypoint by name and type for a player.
      * For PUBLIC: just name
      * For PRIVATE: name + ownerUuid

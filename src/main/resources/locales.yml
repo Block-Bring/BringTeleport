@@ -10,6 +10,14 @@ bringteleport:
   reload:
     success: <green>✔</green> <white>配置文件已重载</white>
 
+# ========== 世界显示名 ==========
+# 路径点信息中显示的世界名，可自由添加任意世界的映射（兼容多世界插件）
+# 如果有新世界直接在 world_the_end 下一行开始即可
+world-names:
+  world: <green>主世界</green>
+  world_nether: <red>下界</red>
+  world_the_end: <yellow>末地</yellow>
+
 # ========== 路径点 ==========
 waypoint:
   help: |
@@ -20,6 +28,8 @@ waypoint:
     <green>/waypoint create private <name></green>  <white>创建私有路径点</white>
     <green>/waypoint delete public <name></green>  <white>删除公有路径点</white>
     <green>/waypoint delete private <name></green>  <white>删除私有路径点</white>
+    <green>/waypoint rename public <name></green>  <white>重命名公有路径点</white>
+    <green>/waypoint rename private <name></green>  <white>重命名私有路径点</white>
 
     <dark_green>◈ 信息</dark_green>
     <green>/waypoint info public <name></green>  <white>查看公有路径点信息</white>
@@ -30,9 +40,18 @@ waypoint:
     <green>/waypoint tp private <name></green>  <white>传送到私有路径点</white>
     <green>/waypoint tp back [index]</green>  <white>返回传送前的位置</white>
     <green>/waypoint tp back undo</green>  <white>撤销上次 back</white>
+    <green>/tpwarp <name></green>  <white>直接传送到路径点</white>
   create:
     success: <green>✔</green> <white>路径点 </white><yellow>{name}</yellow><white> ({type})
       已创建</white>
+    # 共享通知（创建公有路径点时广播给所有在线玩家）
+    # {player} {name} {world} {x} {y} {z} 占位符与 info 模板同一套
+    # 最后一行是单击传送按钮，文本与命令均可自定义
+    shared: |
+      
+      <white>玩家 </white><yellow>{player}</yellow><white> 分享了一个路径点 </white><yellow>{name}</yellow><white>！</white>
+      <white>来自 </white>{world}<white> 的 </white><green>{x} {y} {z}</green>
+      <click:run_command:'/waypoint tp public {name}'><hover:show_text:'<green>点击传送到</green> <yellow>{name}</yellow>'><gold>[单击此处传送]</gold></hover></click>
     duplicate-public: <red>公有路径点 </red><yellow>{name}</yellow><red> 已存在</red>
     duplicate-private: <red>你的私有路径点 </red><yellow>{name}</yellow><red> 已存在</red>
     fail: <red>路径点创建失败，名称可能已存在</red>
@@ -41,19 +60,32 @@ waypoint:
       已删除</white>
     not-found: <red>路径点 </red><yellow>{name}</yellow><red> ({type}) 不存在</red>
     not-owner: <red>你不能删除其他玩家创建的公有路径点</red>
-    confirm-required: <gold>⚠</gold> <white>确认删除路径点 </white><yellow>{name}</yellow><white>
-      ？请在 </white><yellow>{timeout}</yellow><white> 秒内输入 </white><green>/waypoint
-      confirm</green><white> 确认</white>
+    confirm-required: | 
+      
+      <gold>⚠</gold> <white>确认删除路径点 </white><yellow>{name}</yellow><white>？</white>
+      <white>请在 </white><yellow>{timeout}</yellow><white> 秒内确认！</white>
+      <click:run_command:'/waypoint confirm'><hover:show_text:'<red>这将永久失去！真的很久！</red>'><red>[确认]</red></hover></click>
     confirm-none: <red>没有待确认的删除操作</red>
     confirm-expired: <red>待确认的删除操作已过期（{timeout} 秒），请重新输入删除命令</red>
     confirm-success: <green>✔</green> <white>路径点 </white><yellow>{name}</yellow><white>
       已确认删除</white>
+  rename:
+    prompt: <gold>将路径点 </gold><yellow>{name}</yellow><gold> 重命名为什么？请在 </gold><yellow>{timeout}</yellow><gold>
+      秒内于聊天框输入新名字</gold>
+    success: <green>✔</green> <white>路径点 </white><yellow>{name}</yellow><white> 已重命名为
+      </white><yellow>{newName}</yellow>
+    not-found: <red>路径点 </red><yellow>{name}</yellow><red> ({type}) 不存在</red>
+    not-owner: <red>你不能重命名其他玩家创建的公有路径点</red>
+    duplicate: <red>新名字 </red><yellow>{newName}</yellow><red> 已存在</red>
+    expired: <red>重命名请求已过期，请重新执行 /waypoint rename</red>
+    usage: <red>格式：</red><yellow>/waypoint rename public <名字> <新名字></yellow><red>
+      或 </red><yellow>/waypoint rename private <玩家名> <名字> <新名字></yellow>
   info:
     type:
       public: 公有
       private: 私有
     template: |
-    
+
       <gold>===== <green>路径点信息 <gold>=====
       <gold>名称：<green>{name}
       <gold>类型：<green>{type}
