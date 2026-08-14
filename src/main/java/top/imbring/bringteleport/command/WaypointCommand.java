@@ -496,6 +496,17 @@ public final class WaypointCommand {
                 .executes(ctx -> executeTpWarp(ctx, plugin)))
             .build();
         commands.register(tpWarpNode, "Teleport to a waypoint", List.of());
+
+        // /setwarp：/waypoint create 的别名，效果完全一致
+        var setWarpNode = literal("setwarp")
+            .then(literal(TYPE_PUBLIC)
+                .then(argument("name", string)
+                    .executes(ctx -> executeCreate(ctx, plugin, WaypointType.PUBLIC))))
+            .then(literal(TYPE_PRIVATE)
+                .then(argument("name", string)
+                    .executes(ctx -> executeCreate(ctx, plugin, WaypointType.PRIVATE))))
+            .build();
+        commands.register(setWarpNode, "Create a waypoint (alias of /waypoint create)", List.of());
     }
 
     private static int executeHelp(CommandContext<CommandSourceStack> ctx, BringTeleportPlugin plugin) {

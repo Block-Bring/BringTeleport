@@ -26,6 +26,7 @@ waypoint:
     <dark_green>◈ 管理</dark_green>
     <green>/waypoint create public <name></green>  <white>创建公有路径点</white>
     <green>/waypoint create private <name></green>  <white>创建私有路径点</white>
+    <green>/setwarp public|private <name></green>  <white>创建路径点（快捷命令）</white>
     <green>/waypoint delete public <name></green>  <white>删除公有路径点</white>
     <green>/waypoint delete private <name></green>  <white>删除私有路径点</white>
     <green>/waypoint rename public <name></green>  <white>重命名公有路径点</white>
