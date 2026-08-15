@@ -229,6 +229,26 @@ public class WarpManager {
     }
 
     /**
+     * All warps starred by a player, newest star first.
+     */
+    public List<Warp> getStarredWarps(UUID playerUuid) {
+        List<Warp> warps = new ArrayList<>();
+        String sql = "SELECT w.* FROM warps w JOIN warp_stars s ON w.id = s.warp_id " +
+            "WHERE s.player_uuid = ? ORDER BY s.id DESC";
+        try (PreparedStatement pstmt = getConnection().prepareStatement(sql)) {
+            pstmt.setString(1, playerUuid.toString());
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    warps.add(mapRow(rs));
+                }
+            }
+        } catch (SQLException e) {
+            this.plugin.getLogger().log(Level.SEVERE, "Failed to list starred warps", e);
+        }
+        return warps;
+    }
+
+    /**
      * Number of players who starred a warp (public info display).
      */
     public int getStarCount(int warpId) {
@@ -305,29 +325,11 @@ public class WarpManager {
     }
 
     /**
-     * Get a warp by its database id (used by the star system).
-     */
-    public Optional<Warp> getWarpById(int id) {
-        String sql = "SELECT * FROM warps WHERE id = ?";
-        try (PreparedStatement pstmt = getConnection().prepareStatement(sql)) {
-            pstmt.setInt(1, id);
-            try (ResultSet rs = pstmt.executeQuery()) {
-                if (rs.next()) {
-                    return Optional.of(mapRow(rs));
-                }
-            }
-        } catch (SQLException e) {
-            this.plugin.getLogger().log(Level.SEVERE, "Failed to get warp by id", e);
-        }
-        return Optional.empty();
-    }
-
-    /**
      * List all public warps.
      */
     public List<Warp> getPublicWarps() {
         List<Warp> warps = new ArrayList<>();
-        String sql = "SELECT * FROM warps WHERE type = 'PUBLIC' ORDER BY name";
+        String sql = "SELECT * FROM warps WHERE type = 'PUBLIC' ORDER BY id DESC";
         try (Statement stmt = getConnection().createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
             while (rs.next()) {
@@ -361,7 +363,7 @@ public class WarpManager {
      */
     public List<Warp> getPrivateWarps(UUID ownerUuid) {
         List<Warp> warps = new ArrayList<>();
-        String sql = "SELECT * FROM warps WHERE type = 'PRIVATE' AND owner_uuid = ? ORDER BY name";
+        String sql = "SELECT * FROM warps WHERE type = 'PRIVATE' AND owner_uuid = ? ORDER BY id DESC";
         try (PreparedStatement pstmt = getConnection().prepareStatement(sql)) {
             pstmt.setString(1, ownerUuid.toString());
             try (ResultSet rs = pstmt.executeQuery()) {

@@ -254,14 +254,13 @@ public final class WarpCommand {
         return suggestTokens(builder, warps.stream().map(Warp::getName).toList());
     }
 
-    // 收藏优先排序：收藏的路径点排在前，未收藏的排在后，两组内均按名称排序
+    // 收藏优先排序：收藏的路径点排在前，未收藏的排在后（组内保持传入顺序，即创建时间倒序）
     private static List<Warp> sortStarredFirst(List<Warp> warps, Set<Integer> starredIds) {
         if (starredIds.isEmpty()) {
             return warps;
         }
         List<Warp> sorted = new ArrayList<>(warps);
-        sorted.sort(Comparator.comparing((Warp warp) -> !starredIds.contains(warp.getId()))
-            .thenComparing(Warp::getName));
+        sorted.sort(Comparator.comparing((Warp warp) -> !starredIds.contains(warp.getId())));
         return sorted;
     }
 
@@ -1229,17 +1228,11 @@ public final class WarpCommand {
             }
 
             WarpManager manager = plugin.getWarpManager();
-            Set<Integer> ids = manager.getStarredIds(player.getUniqueId());
-            if (ids.isEmpty()) {
+            List<Warp> starred = manager.getStarredWarps(player.getUniqueId());
+            if (starred.isEmpty()) {
                 player.sendMessage(getLocaleMessage(plugin, "warp.star.list-empty"));
                 return 1;
             }
-
-            List<Warp> starred = new ArrayList<>();
-            for (int id : ids) {
-                manager.getWarpById(id).ifPresent(starred::add);
-            }
-            starred.sort(Comparator.comparing(Warp::getName));
 
             player.sendMessage(MiniMessage.miniMessage().deserialize(
                 plugin.getLocaleManager().getRaw("warp.star.list-header")));

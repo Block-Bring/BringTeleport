@@ -56,7 +56,7 @@ bringteleport.reload  默认 op  重载插件配置文件
 
 别名：`/wp`
 
-收藏的路径点在 Tab 补全中会排在任何未收藏的路径点前面（收藏之间按名称排序）；`/tpwarp` 重名时优先传送到收藏的路径点。
+收藏的路径点在 Tab 补全中会排在任何未收藏的路径点前面；所有列表默认按创建时间倒序（新创建的在上），`/warp star list` 按收藏时间倒序；`/tpwarp` 重名时优先传送到收藏的路径点。
 
 > 服务器控制台（后台）也可执行 `info` / `delete` / `rename` 命令；操作私有路径点时需指定玩家名，如 `/warp info private <玩家名> <name>`，控制台删除直接生效、不经过确认；控制台重命名直接给两个参数：`/warp rename public <name> <新名字>`、`/warp rename private <玩家名> <name> <新名字>`。
 
