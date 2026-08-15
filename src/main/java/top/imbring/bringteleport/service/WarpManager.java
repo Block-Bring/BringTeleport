@@ -15,7 +15,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -210,11 +209,12 @@ public class WarpManager {
     }
 
     /**
-     * All warp ids starred by a player (used for Tab-completion ordering).
+     * All warp ids starred by a player, newest star first
+     * (used for Tab-completion ordering).
      */
-    public Set<Integer> getStarredIds(UUID playerUuid) {
-        Set<Integer> ids = new HashSet<>();
-        String sql = "SELECT warp_id FROM warp_stars WHERE player_uuid = ?";
+    public List<Integer> getStarredWarpIds(UUID playerUuid) {
+        List<Integer> ids = new ArrayList<>();
+        String sql = "SELECT warp_id FROM warp_stars WHERE player_uuid = ? ORDER BY id DESC";
         try (PreparedStatement pstmt = getConnection().prepareStatement(sql)) {
             pstmt.setString(1, playerUuid.toString());
             try (ResultSet rs = pstmt.executeQuery()) {

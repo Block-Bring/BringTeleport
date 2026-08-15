@@ -172,25 +172,21 @@ public final class WarpCommand {
     }
 
     // ===== A1: Tab completion helpers =====
+    // 所有补全统一走 suggestTokens（手动构造 Suggestion 并限定 range 为当前 token）：
+    // 与 /tpwarp 相同的返回方式，确保服务端原样保留排序结果
     private static CompletableFuture<Suggestions> suggestPublicWarps(CommandSourceStack source, SuggestionsBuilder builder, WarpManager mgr, boolean filterOwner) {
         List<Warp> warps = mgr.getPublicWarps();
         if (filterOwner && source.getSender() instanceof Player player) {
             warps = warps.stream().filter(wp -> player.getUniqueId().equals(wp.getOwnerUuid())).toList();
         }
         warps = sortStarredFirst(warps, starredIds(source, mgr));
-        warps.stream().map(Warp::getName)
-            .filter(name -> name.startsWith(builder.getRemaining()))
-            .forEach(builder::suggest);
-        return builder.buildFuture();
+        return suggestTokens(builder, warps.stream().map(Warp::getName).toList());
     }
 
     private static CompletableFuture<Suggestions> suggestPrivateWarps(CommandSourceStack source, SuggestionsBuilder builder, WarpManager mgr) {
         if (source.getSender() instanceof Player player) {
             List<Warp> warps = sortStarredFirst(mgr.getPrivateWarps(player.getUniqueId()), starredIds(source, mgr));
-            warps.stream().map(Warp::getName)
-                .filter(name -> name.startsWith(builder.getRemaining()))
-                .forEach(builder::suggest);
-            return builder.buildFuture();
+            return suggestTokens(builder, warps.stream().map(Warp::getName).toList());
         }
 
         // 控制台：第一个参数建议玩家名，之后建议该玩家的私有路径点
@@ -254,22 +250,28 @@ public final class WarpCommand {
         return suggestTokens(builder, warps.stream().map(Warp::getName).toList());
     }
 
-    // 收藏优先排序：收藏的路径点排在前，未收藏的排在后（组内保持传入顺序，即创建时间倒序）
-    private static List<Warp> sortStarredFirst(List<Warp> warps, Set<Integer> starredIds) {
-        if (starredIds.isEmpty()) {
+    // 收藏优先排序：收藏的路径点按收藏时间倒序（参数 starredWarpIds 已是最新在前）排最前，
+    // 未收藏的保持传入顺序（即创建时间倒序）
+    private static List<Warp> sortStarredFirst(List<Warp> warps, List<Integer> starredWarpIds) {
+        if (starredWarpIds.isEmpty()) {
             return warps;
         }
+        Map<Integer, Integer> starRank = new HashMap<>();
+        for (int i = 0; i < starredWarpIds.size(); i++) {
+            starRank.put(starredWarpIds.get(i), i);
+        }
         List<Warp> sorted = new ArrayList<>(warps);
-        sorted.sort(Comparator.comparing((Warp warp) -> !starredIds.contains(warp.getId())));
+        // 收藏的按收藏时间倒序排最前；未收藏的 rank 相同，稳定排序保持原顺序
+        sorted.sort(Comparator.comparingInt((Warp warp) -> starRank.getOrDefault(warp.getId(), Integer.MAX_VALUE)));
         return sorted;
     }
 
-    // 玩家视角的收藏 ID 集合；控制台无收藏概念，返回空集
-    private static Set<Integer> starredIds(CommandSourceStack source, WarpManager mgr) {
+    // 玩家视角的收藏 ID 列表（按收藏时间倒序）；控制台无收藏概念，返回空列表
+    private static List<Integer> starredIds(CommandSourceStack source, WarpManager mgr) {
         if (source.getSender() instanceof Player player) {
-            return mgr.getStarredIds(player.getUniqueId());
+            return mgr.getStarredWarpIds(player.getUniqueId());
         }
-        return Set.of();
+        return List.of();
     }
 
     // ===== A2: Player & name resolution helpers =====
@@ -934,10 +936,13 @@ public final class WarpCommand {
                 info = info.replace("{" + entry.getKey() + "}", entry.getValue());
             }
 
-            // 公有路径点公开展示收藏数
+            // 收藏数占位符 {stars_line} 位于模板内部（默认在坐标行后、底线前）：
+            // 公有路径点显示收藏数，私有路径点删除整行
             if (type == WarpType.PUBLIC) {
-                info += "\n" + plugin.getLocaleManager().getRaw("warp.info.stars")
-                    .replace("{stars}", String.valueOf(manager.getStarCount(warp.getId())));
+                info = info.replace("{stars_line}", plugin.getLocaleManager().getRaw("warp.info.stars")
+                    .replace("{stars}", String.valueOf(manager.getStarCount(warp.getId()))));
+            } else {
+                info = info.replace("\n{stars_line}", "");
             }
 
             sender.sendMessage(MiniMessage.miniMessage().deserialize(info));

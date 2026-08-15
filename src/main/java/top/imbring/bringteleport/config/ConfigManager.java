@@ -52,6 +52,17 @@ public final class ConfigManager {
                 defaults.load(reader);
             }
 
+            // v0.7.1 迁移：info 模板新增 {stars_line} 占位符行（收藏数移入框内），
+            // 旧模板缺失该占位符则整段替换为默认模板
+            if (fileName.equals("locales.yml") && current.contains("warp.info.template")
+                && defaults.contains("warp.info.template")) {
+                String template = current.getString("warp.info.template");
+                if (template != null && !template.contains("{stars_line}")) {
+                    current.set("warp.info.template", defaults.getString("warp.info.template"));
+                    changed = true;
+                }
+            }
+
             if (mergeMissing(current, defaults) || changed) {
                 current.save(file);
                 plugin.getLogger().info("Migrated " + fileName + " — added missing keys");

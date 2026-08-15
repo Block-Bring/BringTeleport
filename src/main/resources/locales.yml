@@ -99,8 +99,10 @@ warp:
       <gold>创建时间：<green>{date}
       <gold>世界：<green>{world}
       <gold>坐标：<green>{x} {y} {z}
+      {stars_line}
       <gold>===================
-    # 公有路径点公开展示的收藏数（仅公有路径点的 info 显示此行）
+    # {stars_line} 行的内容：仅公有路径点的 info 显示（收藏数），私有路径点自动隐藏此行。
+    # 若自定义模板，请把 {stars_line} 放在模板内任意位置并独占一行
     stars: <gold>⭐ 收藏：<green>{stars}
     not-found: <red>路径点 </red><yellow>{name}</yellow><red> ({type}) 不存在</red>
   star:
