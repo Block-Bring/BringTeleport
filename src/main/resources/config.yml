@@ -10,7 +10,7 @@ prefix-enabled: true
 # 填 system 或留空则使用服务器系统时区
 timezone: "+8"
 
-waypoint:
+warp:
   delete-confirmation:
     # 是否启用删除确认
     enabled: true

@@ -17,8 +17,8 @@ body:
       label: 复现步骤
       description: 怎么才能触发这个问题？
       placeholder: |
-        1. 输入 /waypoint create public home
-        2. 输入 /waypoint tp public home
+        1. 输入 /warp create public home
+        2. 输入 /warp tp public home
         3. 观察控制台输出
     validations:
       required: true

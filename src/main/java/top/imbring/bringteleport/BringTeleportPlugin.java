@@ -3,16 +3,16 @@ package top.imbring.bringteleport;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import org.bukkit.plugin.java.JavaPlugin;
 import top.imbring.bringteleport.command.CommandManager;
-import top.imbring.bringteleport.command.WaypointCommand;
+import top.imbring.bringteleport.command.WarpCommand;
 import top.imbring.bringteleport.config.ConfigManager;
 import top.imbring.bringteleport.locale.LocaleManager;
 import top.imbring.bringteleport.service.TeleportHistory;
-import top.imbring.bringteleport.service.WaypointManager;
+import top.imbring.bringteleport.service.WarpManager;
 
 public final class BringTeleportPlugin extends JavaPlugin {
 
     private LocaleManager localeManager;
-    private WaypointManager waypointManager;
+    private WarpManager warpManager;
     private TeleportHistory teleportHistory;
 
     @Override
@@ -26,7 +26,7 @@ public final class BringTeleportPlugin extends JavaPlugin {
         saveResource("locales.yml", false);
         ConfigManager.migrate(this);
         this.localeManager = new LocaleManager(this);
-        this.waypointManager = new WaypointManager(this);
+        this.warpManager = new WarpManager(this);
         this.teleportHistory = new TeleportHistory();
 
         // Register commands via Paper lifecycle
@@ -40,9 +40,9 @@ public final class BringTeleportPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        WaypointCommand.cancelAllCountdowns();
-        if (this.waypointManager != null) {
-            this.waypointManager.shutdown();
+        WarpCommand.cancelAllCountdowns();
+        if (this.warpManager != null) {
+            this.warpManager.shutdown();
         }
         getLogger().info("BringTeleport has been disabled!");
     }
@@ -51,8 +51,8 @@ public final class BringTeleportPlugin extends JavaPlugin {
         return this.localeManager;
     }
 
-    public WaypointManager getWaypointManager() {
-        return this.waypointManager;
+    public WarpManager getWarpManager() {
+        return this.warpManager;
     }
 
     public TeleportHistory getTeleportHistory() {
@@ -62,7 +62,7 @@ public final class BringTeleportPlugin extends JavaPlugin {
     public void reload() {
         ConfigManager.migrate(this);
         reloadConfig();
-        WaypointCommand.refreshConfigCache(this);
+        WarpCommand.refreshConfigCache(this);
         this.localeManager.reload();
     }
 }

@@ -30,7 +30,7 @@ public final class BringTeleportCommand {
             CommandSourceStack source = ctx.getSource();
             if (!source.getSender().hasPermission("bringteleport.reload")) {
                 source.getSender().sendMessage(
-                    plugin.getLocaleManager().getMessage("waypoint.error.no-permission", null));
+                    plugin.getLocaleManager().getMessage("warp.error.no-permission", null));
                 return 0;
             }
             plugin.reload();
@@ -38,7 +38,7 @@ public final class BringTeleportCommand {
                 plugin.getLocaleManager().getMessage("bringteleport.reload.success", null));
             return 1;
         } catch (Exception e) {
-            return WaypointCommand.handleError(plugin, ctx, "Failed to reload plugin", e);
+            return WarpCommand.handleError(plugin, ctx, "Failed to reload plugin", e);
         }
     }
 
@@ -49,7 +49,7 @@ public final class BringTeleportCommand {
             source.getSender().sendMessage(message);
             return 1;
         } catch (Exception e) {
-            return WaypointCommand.handleError(plugin, ctx, "Failed to execute bringteleport help command", e);
+            return WarpCommand.handleError(plugin, ctx, "Failed to execute bringteleport help command", e);
         }
     }
 }

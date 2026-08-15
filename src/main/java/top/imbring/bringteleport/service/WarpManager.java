@@ -4,8 +4,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.plugin.java.JavaPlugin;
-import top.imbring.bringteleport.model.Waypoint;
-import top.imbring.bringteleport.model.Waypoint.WaypointType;
+import top.imbring.bringteleport.model.Warp;
+import top.imbring.bringteleport.model.Warp.WarpType;
 
 import java.io.File;
 import java.sql.Connection;
@@ -20,14 +20,14 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.logging.Level;
 
-public class WaypointManager {
+public class WarpManager {
 
     private final JavaPlugin plugin;
     private final String dbUrl;
     private Connection connection;
     private boolean schemaReady;
 
-    public WaypointManager(JavaPlugin plugin) {
+    public WarpManager(JavaPlugin plugin) {
         this.plugin = plugin;
         File dbFile = new File(plugin.getDataFolder(), "data.db");
         this.dbUrl = "jdbc:sqlite:" + dbFile.getAbsolutePath();
@@ -45,8 +45,19 @@ public class WaypointManager {
         try {
             Connection conn = getConnection();
             try (Statement stmt = conn.createStatement()) {
+                // v2 迁移：waypoint 模块更名为 warp，旧表 waypoints 重命名为 warps
+                try (ResultSet rs = stmt.executeQuery(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name='waypoints'")) {
+                    if (rs.next()) {
+                        stmt.execute("DROP INDEX IF EXISTS idx_waypoint_public_name");
+                        stmt.execute("DROP INDEX IF EXISTS idx_waypoint_private_name");
+                        stmt.execute("ALTER TABLE waypoints RENAME TO warps");
+                        this.plugin.getLogger().info("Migrated database table waypoints -> warps");
+                    }
+                }
+
                 stmt.execute("""
-                    CREATE TABLE IF NOT EXISTS waypoints (
+                    CREATE TABLE IF NOT EXISTS warps (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         name TEXT NOT NULL,
                         world TEXT NOT NULL,
@@ -61,11 +72,11 @@ public class WaypointManager {
                     )
                 """);
 
-                stmt.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_waypoint_public_name " +
-                    "ON waypoints(name) WHERE type = 'PUBLIC'");
+                stmt.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_warp_public_name " +
+                    "ON warps(name) WHERE type = 'PUBLIC'");
 
-                stmt.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_waypoint_private_name " +
-                    "ON waypoints(name, owner_uuid) WHERE type = 'PRIVATE'");
+                stmt.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_warp_private_name " +
+                    "ON warps(name, owner_uuid) WHERE type = 'PRIVATE'");
             }
             this.schemaReady = true;
         } catch (SQLException e) {
@@ -74,22 +85,22 @@ public class WaypointManager {
     }
 
     /**
-     * Add a new waypoint.
+     * Add a new warp.
      * @return true if successful, false if name already exists
      */
-    public boolean addWaypoint(Waypoint waypoint) {
-        String sql = "INSERT INTO waypoints (name, world, x, y, z, yaw, pitch, type, owner_uuid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    public boolean addWarp(Warp warp) {
+        String sql = "INSERT INTO warps (name, world, x, y, z, yaw, pitch, type, owner_uuid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (PreparedStatement pstmt = getConnection().prepareStatement(sql)) {
-            pstmt.setString(1, waypoint.getName());
-            pstmt.setString(2, waypoint.getWorld());
-            pstmt.setDouble(3, waypoint.getX());
-            pstmt.setDouble(4, waypoint.getY());
-            pstmt.setDouble(5, waypoint.getZ());
-            pstmt.setFloat(6, waypoint.getYaw());
-            pstmt.setFloat(7, waypoint.getPitch());
-            pstmt.setString(8, waypoint.getType().name());
-            if (waypoint.getOwnerUuid() != null) {
-                pstmt.setString(9, waypoint.getOwnerUuid().toString());
+            pstmt.setString(1, warp.getName());
+            pstmt.setString(2, warp.getWorld());
+            pstmt.setDouble(3, warp.getX());
+            pstmt.setDouble(4, warp.getY());
+            pstmt.setDouble(5, warp.getZ());
+            pstmt.setFloat(6, warp.getYaw());
+            pstmt.setFloat(7, warp.getPitch());
+            pstmt.setString(8, warp.getType().name());
+            if (warp.getOwnerUuid() != null) {
+                pstmt.setString(9, warp.getOwnerUuid().toString());
             } else {
                 pstmt.setNull(9, java.sql.Types.VARCHAR);
             }
@@ -99,51 +110,51 @@ public class WaypointManager {
             if (e.getMessage() != null && e.getMessage().contains("UNIQUE")) {
                 return false;
             }
-            this.plugin.getLogger().log(Level.SEVERE, "Failed to add waypoint", e);
+            this.plugin.getLogger().log(Level.SEVERE, "Failed to add warp", e);
             return false;
         }
     }
 
     /**
-     * Delete a waypoint by name and type.
+     * Delete a warp by name and type.
      * @return true if deleted, false if not found
      */
-    public boolean deleteWaypoint(String name, WaypointType type, UUID ownerUuid) {
+    public boolean deleteWarp(String name, WarpType type, UUID ownerUuid) {
         String sql;
-        if (type == WaypointType.PUBLIC) {
-            sql = "DELETE FROM waypoints WHERE name = ? AND type = 'PUBLIC'";
+        if (type == WarpType.PUBLIC) {
+            sql = "DELETE FROM warps WHERE name = ? AND type = 'PUBLIC'";
         } else {
-            sql = "DELETE FROM waypoints WHERE name = ? AND type = 'PRIVATE' AND owner_uuid = ?";
+            sql = "DELETE FROM warps WHERE name = ? AND type = 'PRIVATE' AND owner_uuid = ?";
         }
 
         try (PreparedStatement pstmt = getConnection().prepareStatement(sql)) {
             pstmt.setString(1, name);
-            if (type == WaypointType.PRIVATE) {
+            if (type == WarpType.PRIVATE) {
                 pstmt.setString(2, ownerUuid.toString());
             }
             return pstmt.executeUpdate() > 0;
         } catch (SQLException e) {
-            this.plugin.getLogger().log(Level.SEVERE, "Failed to delete waypoint", e);
+            this.plugin.getLogger().log(Level.SEVERE, "Failed to delete warp", e);
             return false;
         }
     }
 
     /**
-     * Rename a waypoint.
-     * @return true if renamed, false if not found or new name conflicts with an existing waypoint
+     * Rename a warp.
+     * @return true if renamed, false if not found or new name conflicts with an existing warp
      */
-    public boolean renameWaypoint(String name, WaypointType type, UUID ownerUuid, String newName) {
+    public boolean renameWarp(String name, WarpType type, UUID ownerUuid, String newName) {
         String sql;
-        if (type == WaypointType.PUBLIC) {
-            sql = "UPDATE waypoints SET name = ? WHERE name = ? AND type = 'PUBLIC'";
+        if (type == WarpType.PUBLIC) {
+            sql = "UPDATE warps SET name = ? WHERE name = ? AND type = 'PUBLIC'";
         } else {
-            sql = "UPDATE waypoints SET name = ? WHERE name = ? AND type = 'PRIVATE' AND owner_uuid = ?";
+            sql = "UPDATE warps SET name = ? WHERE name = ? AND type = 'PRIVATE' AND owner_uuid = ?";
         }
 
         try (PreparedStatement pstmt = getConnection().prepareStatement(sql)) {
             pstmt.setString(1, newName);
             pstmt.setString(2, name);
-            if (type == WaypointType.PRIVATE) {
+            if (type == WarpType.PRIVATE) {
                 pstmt.setString(3, ownerUuid.toString());
             }
             return pstmt.executeUpdate() > 0;
@@ -151,27 +162,27 @@ public class WaypointManager {
             if (e.getMessage() != null && e.getMessage().contains("UNIQUE")) {
                 return false;
             }
-            this.plugin.getLogger().log(Level.SEVERE, "Failed to rename waypoint", e);
+            this.plugin.getLogger().log(Level.SEVERE, "Failed to rename warp", e);
             return false;
         }
     }
 
     /**
-     * Get a waypoint by name and type for a player.
+     * Get a warp by name and type for a player.
      * For PUBLIC: just name
      * For PRIVATE: name + ownerUuid
      */
-    public Optional<Waypoint> getWaypoint(String name, WaypointType type, UUID ownerUuid) {
+    public Optional<Warp> getWarp(String name, WarpType type, UUID ownerUuid) {
         String sql;
-        if (type == WaypointType.PUBLIC) {
-            sql = "SELECT * FROM waypoints WHERE name = ? AND type = 'PUBLIC'";
+        if (type == WarpType.PUBLIC) {
+            sql = "SELECT * FROM warps WHERE name = ? AND type = 'PUBLIC'";
         } else {
-            sql = "SELECT * FROM waypoints WHERE name = ? AND type = 'PRIVATE' AND owner_uuid = ?";
+            sql = "SELECT * FROM warps WHERE name = ? AND type = 'PRIVATE' AND owner_uuid = ?";
         }
 
         try (PreparedStatement pstmt = getConnection().prepareStatement(sql)) {
             pstmt.setString(1, name);
-            if (type == WaypointType.PRIVATE) {
+            if (type == WarpType.PRIVATE) {
                 pstmt.setString(2, ownerUuid.toString());
             }
 
@@ -181,74 +192,74 @@ public class WaypointManager {
                 }
             }
         } catch (SQLException e) {
-            this.plugin.getLogger().log(Level.SEVERE, "Failed to get waypoint", e);
+            this.plugin.getLogger().log(Level.SEVERE, "Failed to get warp", e);
         }
         return Optional.empty();
     }
 
     /**
-     * List all public waypoints.
+     * List all public warps.
      */
-    public List<Waypoint> getPublicWaypoints() {
-        List<Waypoint> waypoints = new ArrayList<>();
-        String sql = "SELECT * FROM waypoints WHERE type = 'PUBLIC' ORDER BY name";
+    public List<Warp> getPublicWarps() {
+        List<Warp> warps = new ArrayList<>();
+        String sql = "SELECT * FROM warps WHERE type = 'PUBLIC' ORDER BY name";
         try (Statement stmt = getConnection().createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
             while (rs.next()) {
-                waypoints.add(mapRow(rs));
+                warps.add(mapRow(rs));
             }
         } catch (SQLException e) {
-            this.plugin.getLogger().log(Level.SEVERE, "Failed to list public waypoints", e);
+            this.plugin.getLogger().log(Level.SEVERE, "Failed to list public warps", e);
         }
-        return waypoints;
+        return warps;
     }
 
     /**
-     * List all players who own at least one private waypoint.
+     * List all players who own at least one private warp.
      */
-    public List<UUID> getPrivateWaypointOwners() {
+    public List<UUID> getPrivateWarpOwners() {
         List<UUID> owners = new ArrayList<>();
-        String sql = "SELECT DISTINCT owner_uuid FROM waypoints WHERE type = 'PRIVATE' AND owner_uuid IS NOT NULL";
+        String sql = "SELECT DISTINCT owner_uuid FROM warps WHERE type = 'PRIVATE' AND owner_uuid IS NOT NULL";
         try (Statement stmt = getConnection().createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
             while (rs.next()) {
                 owners.add(UUID.fromString(rs.getString("owner_uuid")));
             }
         } catch (SQLException e) {
-            this.plugin.getLogger().log(Level.SEVERE, "Failed to list private waypoint owners", e);
+            this.plugin.getLogger().log(Level.SEVERE, "Failed to list private warp owners", e);
         }
         return owners;
     }
 
     /**
-     * List all private waypoints for a player.
+     * List all private warps for a player.
      */
-    public List<Waypoint> getPrivateWaypoints(UUID ownerUuid) {
-        List<Waypoint> waypoints = new ArrayList<>();
-        String sql = "SELECT * FROM waypoints WHERE type = 'PRIVATE' AND owner_uuid = ? ORDER BY name";
+    public List<Warp> getPrivateWarps(UUID ownerUuid) {
+        List<Warp> warps = new ArrayList<>();
+        String sql = "SELECT * FROM warps WHERE type = 'PRIVATE' AND owner_uuid = ? ORDER BY name";
         try (PreparedStatement pstmt = getConnection().prepareStatement(sql)) {
             pstmt.setString(1, ownerUuid.toString());
             try (ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {
-                    waypoints.add(mapRow(rs));
+                    warps.add(mapRow(rs));
                 }
             }
         } catch (SQLException e) {
-            this.plugin.getLogger().log(Level.SEVERE, "Failed to list private waypoints", e);
+            this.plugin.getLogger().log(Level.SEVERE, "Failed to list private warps", e);
         }
-        return waypoints;
+        return warps;
     }
 
     /**
-     * Convert a Waypoint to a Bukkit Location.
+     * Convert a Warp to a Bukkit Location.
      */
-    public Location toLocation(Waypoint waypoint) {
-        World world = Bukkit.getWorld(waypoint.getWorld());
+    public Location toLocation(Warp warp) {
+        World world = Bukkit.getWorld(warp.getWorld());
         if (world == null) {
             return null;
         }
-        return new Location(world, waypoint.getX(), waypoint.getY(), waypoint.getZ(),
-            waypoint.getYaw(), waypoint.getPitch());
+        return new Location(world, warp.getX(), warp.getY(), warp.getZ(),
+            warp.getYaw(), warp.getPitch());
     }
 
     public synchronized void shutdown() {
@@ -262,10 +273,10 @@ public class WaypointManager {
         }
     }
 
-    private Waypoint mapRow(ResultSet rs) throws SQLException {
+    private Warp mapRow(ResultSet rs) throws SQLException {
         String ownerUuidStr = rs.getString("owner_uuid");
         UUID ownerUuid = ownerUuidStr != null ? UUID.fromString(ownerUuidStr) : null;
-        return new Waypoint(
+        return new Warp(
             rs.getInt("id"),
             rs.getString("name"),
             rs.getString("world"),
@@ -274,7 +285,7 @@ public class WaypointManager {
             rs.getDouble("z"),
             rs.getFloat("yaw"),
             rs.getFloat("pitch"),
-            WaypointType.valueOf(rs.getString("type")),
+            WarpType.valueOf(rs.getString("type")),
             ownerUuid,
             rs.getString("created_at")
         );

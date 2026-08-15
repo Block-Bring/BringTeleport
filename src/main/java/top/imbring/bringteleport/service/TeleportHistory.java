@@ -31,7 +31,7 @@ public class TeleportHistory {
         return list == null ? 0 : list.size();
     }
 
-    /** Save where the player was right before /waypoint tp back was used. */
+    /** Save where the player was right before /warp tp back was used. */
     public void setLastBackSource(Player player, Location location) {
         lastBackSource.put(player.getUniqueId(), location.clone());
     }

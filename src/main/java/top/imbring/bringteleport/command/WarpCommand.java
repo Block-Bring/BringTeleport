@@ -25,10 +25,10 @@ import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 import top.imbring.bringteleport.BringTeleportPlugin;
-import top.imbring.bringteleport.model.Waypoint;
-import top.imbring.bringteleport.model.Waypoint.WaypointType;
+import top.imbring.bringteleport.model.Warp;
+import top.imbring.bringteleport.model.Warp.WarpType;
 import top.imbring.bringteleport.service.TeleportHistory;
-import top.imbring.bringteleport.service.WaypointManager;
+import top.imbring.bringteleport.service.WarpManager;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -51,7 +51,7 @@ import java.util.logging.Level;
 import static io.papermc.paper.command.brigadier.Commands.argument;
 import static io.papermc.paper.command.brigadier.Commands.literal;
 
-public final class WaypointCommand {
+public final class WarpCommand {
 
     private static final String TYPE_PUBLIC = "public";
     private static final String TYPE_PRIVATE = "private";
@@ -62,11 +62,11 @@ public final class WaypointCommand {
     private static final Map<UUID, PendingRename> PENDING_RENAMES = new ConcurrentHashMap<>();
     private static final long RENAME_TIMEOUT_MS = 30_000;
 
-    private record PendingDeletion(String name, WaypointType type, long timestamp) {}
+    private record PendingDeletion(String name, WarpType type, long timestamp) {}
     private record CountdownContext(BukkitTask task, int startBlockX, int startBlockY, int startBlockZ) {}
     // ownerName 为 null 表示操作者自己的私有路径点（仅玩家场景）
     private record PrivateTarget(String ownerName, String name) {}
-    private record PendingRename(String name, WaypointType type, long timestamp) {}
+    private record PendingRename(String name, WarpType type, long timestamp) {}
 
     // ===== B2: Configuration cache =====
     private static class ConfigCache {
@@ -108,31 +108,31 @@ public final class WaypointCommand {
 
         static void refresh(BringTeleportPlugin plugin) {
             var config = plugin.getConfig();
-            cancelOnMoveEnabled = config.getBoolean("waypoint.teleport.countdown.cancel-on-move.enabled", true);
-            cancelSoundName = config.getString("waypoint.teleport.countdown.cancel-on-move.sound.name", "block.anvil.place");
-            cancelSoundVolume = (float) config.getDouble("waypoint.teleport.countdown.cancel-on-move.sound.volume", 1.0);
-            cancelSoundPitch = (float) config.getDouble("waypoint.teleport.countdown.cancel-on-move.sound.pitch", 1.0);
-            cancelDisplayMode = config.getString("waypoint.teleport.countdown.cancel-on-move.display", "chat");
+            cancelOnMoveEnabled = config.getBoolean("warp.teleport.countdown.cancel-on-move.enabled", true);
+            cancelSoundName = config.getString("warp.teleport.countdown.cancel-on-move.sound.name", "block.anvil.place");
+            cancelSoundVolume = (float) config.getDouble("warp.teleport.countdown.cancel-on-move.sound.volume", 1.0);
+            cancelSoundPitch = (float) config.getDouble("warp.teleport.countdown.cancel-on-move.sound.pitch", 1.0);
+            cancelDisplayMode = config.getString("warp.teleport.countdown.cancel-on-move.display", "chat");
 
-            countdownEnabled = config.getBoolean("waypoint.teleport.countdown.enabled", true);
-            countdownDelay = config.getDouble("waypoint.teleport.countdown.delay", 3.0);
-            countdownInterval = config.getDouble("waypoint.teleport.countdown.interval", 1.0);
-            countdownDisplayMode = config.getString("waypoint.teleport.countdown.display", "both");
+            countdownEnabled = config.getBoolean("warp.teleport.countdown.enabled", true);
+            countdownDelay = config.getDouble("warp.teleport.countdown.delay", 3.0);
+            countdownInterval = config.getDouble("warp.teleport.countdown.interval", 1.0);
+            countdownDisplayMode = config.getString("warp.teleport.countdown.display", "both");
 
-            countdownSoundEnabled = config.getBoolean("waypoint.teleport.countdown.sound.enabled", true);
-            countdownSoundName = config.getString("waypoint.teleport.countdown.sound.name", "block.note_block.pling");
-            countdownSoundInterval = config.getInt("waypoint.teleport.countdown.sound.interval", 1);
-            countdownSoundVolume = (float) config.getDouble("waypoint.teleport.countdown.sound.volume", 1.0);
-            countdownSoundPitch = (float) config.getDouble("waypoint.teleport.countdown.sound.pitch", 1.0);
+            countdownSoundEnabled = config.getBoolean("warp.teleport.countdown.sound.enabled", true);
+            countdownSoundName = config.getString("warp.teleport.countdown.sound.name", "block.note_block.pling");
+            countdownSoundInterval = config.getInt("warp.teleport.countdown.sound.interval", 1);
+            countdownSoundVolume = (float) config.getDouble("warp.teleport.countdown.sound.volume", 1.0);
+            countdownSoundPitch = (float) config.getDouble("warp.teleport.countdown.sound.pitch", 1.0);
 
-            successDisplayMode = config.getString("waypoint.teleport.success.display", "title");
-            successSoundEnabled = config.getBoolean("waypoint.teleport.success.sound.enabled", true);
-            successSoundName = config.getString("waypoint.teleport.success.sound.name", "entity.player.levelup");
-            successSoundVolume = (float) config.getDouble("waypoint.teleport.success.sound.volume", 1.0);
-            successSoundPitch = (float) config.getDouble("waypoint.teleport.success.sound.pitch", 1.0);
+            successDisplayMode = config.getString("warp.teleport.success.display", "title");
+            successSoundEnabled = config.getBoolean("warp.teleport.success.sound.enabled", true);
+            successSoundName = config.getString("warp.teleport.success.sound.name", "entity.player.levelup");
+            successSoundVolume = (float) config.getDouble("warp.teleport.success.sound.volume", 1.0);
+            successSoundPitch = (float) config.getDouble("warp.teleport.success.sound.pitch", 1.0);
 
-            deleteConfirmationEnabled = config.getBoolean("waypoint.delete-confirmation.enabled", true);
-            deleteConfirmationTimeout = config.getDouble("waypoint.delete-confirmation.timeout", 10.0);
+            deleteConfirmationEnabled = config.getBoolean("warp.delete-confirmation.enabled", true);
+            deleteConfirmationTimeout = config.getDouble("warp.delete-confirmation.timeout", 10.0);
 
             String tz = config.getString("timezone", "+8");
             if (tz == null || tz.isBlank() || tz.equalsIgnoreCase("system")) {
@@ -171,21 +171,21 @@ public final class WaypointCommand {
     }
 
     // ===== A1: Tab completion helpers =====
-    private static CompletableFuture<Suggestions> suggestPublicWaypoints(CommandSourceStack source, SuggestionsBuilder builder, WaypointManager mgr, boolean filterOwner) {
-        var stream = mgr.getPublicWaypoints().stream();
+    private static CompletableFuture<Suggestions> suggestPublicWarps(CommandSourceStack source, SuggestionsBuilder builder, WarpManager mgr, boolean filterOwner) {
+        var stream = mgr.getPublicWarps().stream();
         if (filterOwner && source.getSender() instanceof Player player) {
             stream = stream.filter(wp -> player.getUniqueId().equals(wp.getOwnerUuid()));
         }
-        stream.map(Waypoint::getName)
+        stream.map(Warp::getName)
             .filter(name -> name.startsWith(builder.getRemaining()))
             .forEach(builder::suggest);
         return builder.buildFuture();
     }
 
-    private static CompletableFuture<Suggestions> suggestPrivateWaypoints(CommandSourceStack source, SuggestionsBuilder builder, WaypointManager mgr) {
+    private static CompletableFuture<Suggestions> suggestPrivateWarps(CommandSourceStack source, SuggestionsBuilder builder, WarpManager mgr) {
         if (source.getSender() instanceof Player player) {
-            mgr.getPrivateWaypoints(player.getUniqueId()).stream()
-                .map(Waypoint::getName)
+            mgr.getPrivateWarps(player.getUniqueId()).stream()
+                .map(Warp::getName)
                 .filter(name -> name.startsWith(builder.getRemaining()))
                 .forEach(builder::suggest);
             return builder.buildFuture();
@@ -198,7 +198,7 @@ public final class WaypointCommand {
             for (Player online : Bukkit.getOnlinePlayers()) {
                 names.add(online.getName());
             }
-            for (UUID uuid : mgr.getPrivateWaypointOwners()) {
+            for (UUID uuid : mgr.getPrivateWarpOwners()) {
                 String name = Bukkit.getOfflinePlayer(uuid).getName();
                 if (name != null) names.add(name);
             }
@@ -206,8 +206,8 @@ public final class WaypointCommand {
         }
         String ownerName = typed.trim().split("\\s+")[0];
         return suggestTokens(builder,
-            mgr.getPrivateWaypoints(resolvePlayerByName(ownerName).getUniqueId()).stream()
-                .map(Waypoint::getName)
+            mgr.getPrivateWarps(resolvePlayerByName(ownerName).getUniqueId()).stream()
+                .map(Warp::getName)
                 .toList());
     }
 
@@ -227,24 +227,24 @@ public final class WaypointCommand {
     }
 
     // rename 公有路径点的补全：玩家仅建议自己创建的（或持 del.other 权限则全部），控制台建议全部公有路径点
-    private static CompletableFuture<Suggestions> suggestRenamePublic(CommandSourceStack source, SuggestionsBuilder builder, WaypointManager mgr) {
+    private static CompletableFuture<Suggestions> suggestRenamePublic(CommandSourceStack source, SuggestionsBuilder builder, WarpManager mgr) {
         if (source.getSender() instanceof Player player) {
-            return suggestPublicWaypoints(source, builder, mgr,
-                !player.hasPermission("bringteleport.waypoint.del.other"));
+            return suggestPublicWarps(source, builder, mgr,
+                !player.hasPermission("bringteleport.warp.del.other"));
         }
         return suggestTokens(builder,
-            mgr.getPublicWaypoints().stream().map(Waypoint::getName).toList());
+            mgr.getPublicWarps().stream().map(Warp::getName).toList());
     }
 
     // tpwarp 补全：全部公有路径点 + 玩家自己的私有路径点（去重）
-    private static CompletableFuture<Suggestions> suggestTpWarp(CommandSourceStack source, SuggestionsBuilder builder, WaypointManager mgr) {
+    private static CompletableFuture<Suggestions> suggestTpWarp(CommandSourceStack source, SuggestionsBuilder builder, WarpManager mgr) {
         if (!(source.getSender() instanceof Player)) {
             return builder.buildFuture();
         }
         Set<String> names = new LinkedHashSet<>();
-        mgr.getPublicWaypoints().stream().map(Waypoint::getName).forEach(names::add);
-        mgr.getPrivateWaypoints(((Player) source.getSender()).getUniqueId()).stream()
-            .map(Waypoint::getName).forEach(names::add);
+        mgr.getPublicWarps().stream().map(Warp::getName).forEach(names::add);
+        mgr.getPrivateWarps(((Player) source.getSender()).getUniqueId()).stream()
+            .map(Warp::getName).forEach(names::add);
         return suggestTokens(builder, List.copyOf(names));
     }
 
@@ -254,7 +254,7 @@ public final class WaypointCommand {
         if (source.getSender() instanceof Player player) {
             return player;
         }
-        source.getSender().sendMessage(getLocaleMessage(plugin, "waypoint.error.player-only"));
+        source.getSender().sendMessage(getLocaleMessage(plugin, "warp.error.player-only"));
         return null;
     }
 
@@ -262,12 +262,12 @@ public final class WaypointCommand {
         try {
             String name = ctx.getArgument("name", String.class).trim();
             if (name.isEmpty()) {
-                ctx.getSource().getSender().sendMessage(getLocaleMessage(plugin, "waypoint.error.name-required"));
+                ctx.getSource().getSender().sendMessage(getLocaleMessage(plugin, "warp.error.name-required"));
                 return null;
             }
             return name;
         } catch (IllegalArgumentException e) {
-            ctx.getSource().getSender().sendMessage(getLocaleMessage(plugin, "waypoint.error.name-required"));
+            ctx.getSource().getSender().sendMessage(getLocaleMessage(plugin, "warp.error.name-required"));
             return null;
         }
     }
@@ -303,7 +303,7 @@ public final class WaypointCommand {
 
         if (source.getSender() instanceof Player) {
             if (raw.isEmpty()) {
-                source.getSender().sendMessage(getLocaleMessage(plugin, "waypoint.error.name-required"));
+                source.getSender().sendMessage(getLocaleMessage(plugin, "warp.error.name-required"));
                 return null;
             }
             return new PrivateTarget(null, raw);
@@ -311,7 +311,7 @@ public final class WaypointCommand {
 
         List<String> tokens = parseQuotedTokens(raw);
         if (tokens.size() < 2) {
-            source.getSender().sendMessage(getLocaleMessage(plugin, "waypoint.error.player-required"));
+            source.getSender().sendMessage(getLocaleMessage(plugin, "warp.error.player-required"));
             return null;
         }
         String ownerName = tokens.get(0);
@@ -334,7 +334,7 @@ public final class WaypointCommand {
         if (ownerName != null) {
             OfflinePlayer owner = resolvePlayerByName(ownerName);
             if (!owner.isOnline() && owner.getName() == null && !owner.hasPlayedBefore()) {
-                source.getSender().sendMessage(plugin.getLocaleManager().getMessage("waypoint.error.player-not-found",
+                source.getSender().sendMessage(plugin.getLocaleManager().getMessage("warp.error.player-not-found",
                     Map.of("player", escape(ownerName))));
                 return null;
             }
@@ -343,7 +343,7 @@ public final class WaypointCommand {
         if (source.getSender() instanceof Player player) {
             return player.getUniqueId();
         }
-        source.getSender().sendMessage(getLocaleMessage(plugin, "waypoint.error.player-required"));
+        source.getSender().sendMessage(getLocaleMessage(plugin, "warp.error.player-required"));
         return null;
     }
 
@@ -358,73 +358,73 @@ public final class WaypointCommand {
         ConfigCache.refresh(plugin);
     }
 
-    private WaypointCommand() {
+    private WarpCommand() {
     }
 
     public static void register(Commands commands, BringTeleportPlugin plugin) {
         ConfigCache.refresh(plugin);
         var string = com.mojang.brigadier.arguments.StringArgumentType.greedyString();
 
-        var waypointNode = literal("waypoint")
+        var warpNode = literal("warp")
             .executes(ctx -> executeHelp(ctx, plugin))
             .then(literal("help")
                 .executes(ctx -> executeHelp(ctx, plugin)))
             .then(literal("create")
                 .then(literal(TYPE_PUBLIC)
                     .then(argument("name", string)
-                        .executes(ctx -> executeCreate(ctx, plugin, WaypointType.PUBLIC))))
+                        .executes(ctx -> executeCreate(ctx, plugin, WarpType.PUBLIC))))
                 .then(literal(TYPE_PRIVATE)
                     .then(argument("name", string)
-                        .executes(ctx -> executeCreate(ctx, plugin, WaypointType.PRIVATE)))))
+                        .executes(ctx -> executeCreate(ctx, plugin, WarpType.PRIVATE)))))
             .then(literal("delete")
                 .then(literal(TYPE_PUBLIC)
                     .then(argument("name", string)
                         .suggests((ctx, builder) -> {
                             CommandSourceStack source = ctx.getSource();
-                            return suggestPublicWaypoints(source, builder, plugin.getWaypointManager(),
-                                source.getSender() instanceof Player player && !player.hasPermission("bringteleport.waypoint.del.other"));
+                            return suggestPublicWarps(source, builder, plugin.getWarpManager(),
+                                source.getSender() instanceof Player player && !player.hasPermission("bringteleport.warp.del.other"));
                         })
-                        .executes(ctx -> executeDel(ctx, plugin, WaypointType.PUBLIC))))
+                        .executes(ctx -> executeDel(ctx, plugin, WarpType.PUBLIC))))
                 .then(literal(TYPE_PRIVATE)
                     .then(argument("name", string)
                         .suggests((ctx, builder) ->
-                            suggestPrivateWaypoints(ctx.getSource(), builder, plugin.getWaypointManager()))
-                        .executes(ctx -> executeDel(ctx, plugin, WaypointType.PRIVATE)))))
+                            suggestPrivateWarps(ctx.getSource(), builder, plugin.getWarpManager()))
+                        .executes(ctx -> executeDel(ctx, plugin, WarpType.PRIVATE)))))
             .then(literal("confirm")
                 .executes(ctx -> executeConfirm(ctx, plugin)))
             .then(literal("rename")
                 .then(literal(TYPE_PUBLIC)
                     .then(argument("name", string)
                         .suggests((ctx, builder) ->
-                            suggestRenamePublic(ctx.getSource(), builder, plugin.getWaypointManager()))
-                        .executes(ctx -> executeRename(ctx, plugin, WaypointType.PUBLIC))))
+                            suggestRenamePublic(ctx.getSource(), builder, plugin.getWarpManager()))
+                        .executes(ctx -> executeRename(ctx, plugin, WarpType.PUBLIC))))
                 .then(literal(TYPE_PRIVATE)
                     .then(argument("name", string)
                         .suggests((ctx, builder) ->
-                            suggestPrivateWaypoints(ctx.getSource(), builder, plugin.getWaypointManager()))
-                        .executes(ctx -> executeRename(ctx, plugin, WaypointType.PRIVATE)))))
+                            suggestPrivateWarps(ctx.getSource(), builder, plugin.getWarpManager()))
+                        .executes(ctx -> executeRename(ctx, plugin, WarpType.PRIVATE)))))
             .then(literal("info")
                 .then(literal(TYPE_PUBLIC)
                     .then(argument("name", string)
                         .suggests((ctx, builder) ->
-                            suggestPublicWaypoints(ctx.getSource(), builder, plugin.getWaypointManager(), false))
-                        .executes(ctx -> executeInfo(ctx, plugin, WaypointType.PUBLIC))))
+                            suggestPublicWarps(ctx.getSource(), builder, plugin.getWarpManager(), false))
+                        .executes(ctx -> executeInfo(ctx, plugin, WarpType.PUBLIC))))
                 .then(literal(TYPE_PRIVATE)
                     .then(argument("name", string)
                         .suggests((ctx, builder) ->
-                            suggestPrivateWaypoints(ctx.getSource(), builder, plugin.getWaypointManager()))
-                        .executes(ctx -> executeInfo(ctx, plugin, WaypointType.PRIVATE)))))
+                            suggestPrivateWarps(ctx.getSource(), builder, plugin.getWarpManager()))
+                        .executes(ctx -> executeInfo(ctx, plugin, WarpType.PRIVATE)))))
             .then(literal("tp")
                 .then(literal(TYPE_PUBLIC)
                     .then(argument("name", string)
                         .suggests((ctx, builder) ->
-                            suggestPublicWaypoints(ctx.getSource(), builder, plugin.getWaypointManager(), false))
-                        .executes(ctx -> executeTp(ctx, plugin, WaypointType.PUBLIC))))
+                            suggestPublicWarps(ctx.getSource(), builder, plugin.getWarpManager(), false))
+                        .executes(ctx -> executeTp(ctx, plugin, WarpType.PUBLIC))))
                 .then(literal(TYPE_PRIVATE)
                     .then(argument("name", string)
                         .suggests((ctx, builder) ->
-                            suggestPrivateWaypoints(ctx.getSource(), builder, plugin.getWaypointManager()))
-                        .executes(ctx -> executeTp(ctx, plugin, WaypointType.PRIVATE))))
+                            suggestPrivateWarps(ctx.getSource(), builder, plugin.getWarpManager()))
+                        .executes(ctx -> executeTp(ctx, plugin, WarpType.PRIVATE))))
                 .then(literal("back")
                     .executes(ctx -> executeTpBack(ctx, plugin, 1))
                     .then(literal("undo")
@@ -486,47 +486,47 @@ public final class WaypointCommand {
             }
         }, plugin);
 
-        commands.register(waypointNode, "Manage waypoints", List.of("wp"));
+        commands.register(warpNode, "Manage warps", List.of("wp"));
 
         // /tpwarp：直接传送到路径点，Tab 补全列出全部可传送路径点（公有 + 自己的私有）
         var tpWarpNode = literal("tpwarp")
             .then(argument("name", string)
                 .suggests((ctx, builder) ->
-                    suggestTpWarp(ctx.getSource(), builder, plugin.getWaypointManager()))
+                    suggestTpWarp(ctx.getSource(), builder, plugin.getWarpManager()))
                 .executes(ctx -> executeTpWarp(ctx, plugin)))
             .build();
-        commands.register(tpWarpNode, "Teleport to a waypoint", List.of());
+        commands.register(tpWarpNode, "Teleport to a warp", List.of());
 
-        // /setwarp：/waypoint create 的别名，效果完全一致
+        // /setwarp：/warp create 的别名，效果完全一致
         var setWarpNode = literal("setwarp")
             .then(literal(TYPE_PUBLIC)
                 .then(argument("name", string)
-                    .executes(ctx -> executeCreate(ctx, plugin, WaypointType.PUBLIC))))
+                    .executes(ctx -> executeCreate(ctx, plugin, WarpType.PUBLIC))))
             .then(literal(TYPE_PRIVATE)
                 .then(argument("name", string)
-                    .executes(ctx -> executeCreate(ctx, plugin, WaypointType.PRIVATE))))
+                    .executes(ctx -> executeCreate(ctx, plugin, WarpType.PRIVATE))))
             .build();
-        commands.register(setWarpNode, "Create a waypoint (alias of /waypoint create)", List.of());
+        commands.register(setWarpNode, "Create a warp (alias of /warp create)", List.of());
     }
 
     private static int executeHelp(CommandContext<CommandSourceStack> ctx, BringTeleportPlugin plugin) {
         try {
             CommandSourceStack source = ctx.getSource();
-            Component message = plugin.getLocaleManager().getMessage("waypoint.help", null);
+            Component message = plugin.getLocaleManager().getMessage("warp.help", null);
             source.getSender().sendMessage(message);
             return 1;
         } catch (Exception e) {
-            return handleError(plugin, ctx, "Failed to execute waypoint help command", e);
+            return handleError(plugin, ctx, "Failed to execute warp help command", e);
         }
     }
 
-    private static int executeCreate(CommandContext<CommandSourceStack> ctx, BringTeleportPlugin plugin, WaypointType type) {
+    private static int executeCreate(CommandContext<CommandSourceStack> ctx, BringTeleportPlugin plugin, WarpType type) {
         try {
             Player player = resolvePlayer(ctx, plugin);
             if (player == null) return 1;
 
-            if (!player.hasPermission("bringteleport.waypoint.create")) {
-                player.sendMessage(getLocaleMessage(plugin, "waypoint.error.no-permission"));
+            if (!player.hasPermission("bringteleport.warp.create")) {
+                player.sendMessage(getLocaleMessage(plugin, "warp.error.no-permission"));
                 return 0;
             }
 
@@ -534,44 +534,44 @@ public final class WaypointCommand {
             if (name == null) return 1;
 
             if (name.length() > 32) {
-                player.sendMessage(getLocaleMessage(plugin, "waypoint.error.name-too-long"));
+                player.sendMessage(getLocaleMessage(plugin, "warp.error.name-too-long"));
                 return 1;
             }
 
-            WaypointManager manager = plugin.getWaypointManager();
+            WarpManager manager = plugin.getWarpManager();
             UUID ownerUuid = player.getUniqueId();
 
             // Check for duplicates manually for better error messages
-            if (type == WaypointType.PUBLIC) {
-                Optional<Waypoint> existing = manager.getWaypoint(name, WaypointType.PUBLIC, null);
+            if (type == WarpType.PUBLIC) {
+                Optional<Warp> existing = manager.getWarp(name, WarpType.PUBLIC, null);
                 if (existing.isPresent()) {
-                    player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.create.duplicate-public",
+                    player.sendMessage(plugin.getLocaleManager().getMessage("warp.create.duplicate-public",
                         Map.of("name", escape(name))));
                     return 1;
                 }
             } else {
-                Optional<Waypoint> existing = manager.getWaypoint(name, WaypointType.PRIVATE, player.getUniqueId());
+                Optional<Warp> existing = manager.getWarp(name, WarpType.PRIVATE, player.getUniqueId());
                 if (existing.isPresent()) {
-                    player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.create.duplicate-private",
+                    player.sendMessage(plugin.getLocaleManager().getMessage("warp.create.duplicate-private",
                         Map.of("name", escape(name))));
                     return 1;
                 }
             }
 
             Location location = player.getLocation();
-            Waypoint waypoint = Waypoint.fromLocation(name, location, type, ownerUuid);
+            Warp warp = Warp.fromLocation(name, location, type, ownerUuid);
 
-            if (manager.addWaypoint(waypoint)) {
-                String typeLabel = type == WaypointType.PUBLIC ? "public" : "private";
-                player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.create.success",
+            if (manager.addWarp(warp)) {
+                String typeLabel = type == WarpType.PUBLIC ? "public" : "private";
+                player.sendMessage(plugin.getLocaleManager().getMessage("warp.create.success",
                     Map.of("name", escape(name), "type", typeLabel)));
 
                 // 创建公有路径点后向所有在线玩家广播分享消息（创建者已有成功提示，不再重复）
-                if (type == WaypointType.PUBLIC) {
-                    Map<String, String> sharePlaceholders = new HashMap<>(locationPlaceholders(waypoint, plugin));
+                if (type == WarpType.PUBLIC) {
+                    Map<String, String> sharePlaceholders = new HashMap<>(locationPlaceholders(warp, plugin));
                     sharePlaceholders.put("player", escape(player.getName()));
                     sharePlaceholders.put("name", escape(name));
-                    Component shareMsg = plugin.getLocaleManager().getMessage("waypoint.create.shared", sharePlaceholders);
+                    Component shareMsg = plugin.getLocaleManager().getMessage("warp.create.shared", sharePlaceholders);
                     for (Player online : Bukkit.getOnlinePlayers()) {
                         if (!online.getUniqueId().equals(player.getUniqueId())) {
                             online.sendMessage(shareMsg);
@@ -579,28 +579,28 @@ public final class WaypointCommand {
                     }
                 }
             } else {
-                player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.create.fail",
+                player.sendMessage(plugin.getLocaleManager().getMessage("warp.create.fail",
                     Map.of("name", escape(name))));
             }
 
             return 1;
         } catch (Exception e) {
-            return handleError(plugin, ctx, "Failed to execute waypoint add command", e);
+            return handleError(plugin, ctx, "Failed to execute warp add command", e);
         }
     }
 
-    private static int executeDel(CommandContext<CommandSourceStack> ctx, BringTeleportPlugin plugin, WaypointType type) {
+    private static int executeDel(CommandContext<CommandSourceStack> ctx, BringTeleportPlugin plugin, WarpType type) {
         try {
             CommandSourceStack source = ctx.getSource();
             CommandSender sender = source.getSender();
-            if (!sender.hasPermission("bringteleport.waypoint.del")) {
-                sender.sendMessage(getLocaleMessage(plugin, "waypoint.error.no-permission"));
+            if (!sender.hasPermission("bringteleport.warp.del")) {
+                sender.sendMessage(getLocaleMessage(plugin, "warp.error.no-permission"));
                 return 0;
             }
 
             String name;
             UUID ownerUuid = null;
-            if (type == WaypointType.PRIVATE) {
+            if (type == WarpType.PRIVATE) {
                 PrivateTarget target = resolvePrivateTarget(ctx, plugin);
                 if (target == null) return 1;
                 name = target.name();
@@ -611,22 +611,22 @@ public final class WaypointCommand {
                 if (name == null) return 1;
             }
 
-            WaypointManager manager = plugin.getWaypointManager();
+            WarpManager manager = plugin.getWarpManager();
 
             // 公有路径点的所有者检查仅对玩家生效，控制台视为管理员
-            if (type == WaypointType.PUBLIC && sender instanceof Player player) {
-                Optional<Waypoint> existing = manager.getWaypoint(name, WaypointType.PUBLIC, null);
+            if (type == WarpType.PUBLIC && sender instanceof Player player) {
+                Optional<Warp> existing = manager.getWarp(name, WarpType.PUBLIC, null);
                 if (existing.isEmpty()) {
-                    player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.delete.not-found",
-                        Map.of("name", escape(name), "type", getTypeLabel(plugin, WaypointType.PUBLIC))));
+                    player.sendMessage(plugin.getLocaleManager().getMessage("warp.delete.not-found",
+                        Map.of("name", escape(name), "type", getTypeLabel(plugin, WarpType.PUBLIC))));
                     return 1;
                 }
 
                 boolean isOwner = existing.get().getOwnerUuid() != null
                     && existing.get().getOwnerUuid().equals(player.getUniqueId());
 
-                if (!isOwner && !player.hasPermission("bringteleport.waypoint.del.other")) {
-                    player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.delete.not-owner", null));
+                if (!isOwner && !player.hasPermission("bringteleport.warp.del.other")) {
+                    player.sendMessage(plugin.getLocaleManager().getMessage("warp.delete.not-owner", null));
                     return 0;
                 }
             }
@@ -639,24 +639,24 @@ public final class WaypointCommand {
                     entry.getKey().equals(player.getUniqueId())
                         && System.currentTimeMillis() - entry.getValue().timestamp() > (long) (timeoutSec * 1000));
                 PENDING_DELETIONS.put(player.getUniqueId(), new PendingDeletion(name, type, System.currentTimeMillis()));
-                player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.delete.confirm-required",
+                player.sendMessage(plugin.getLocaleManager().getMessage("warp.delete.confirm-required",
                     Map.of("name", escape(name), "timeout", String.valueOf(timeoutSec))));
                 return 1;
             }
 
-            if (!manager.deleteWaypoint(name, type, ownerUuid)) {
-                String typeLabel = type == WaypointType.PUBLIC ? "public" : "private";
-                sender.sendMessage(plugin.getLocaleManager().getMessage("waypoint.delete.not-found",
+            if (!manager.deleteWarp(name, type, ownerUuid)) {
+                String typeLabel = type == WarpType.PUBLIC ? "public" : "private";
+                sender.sendMessage(plugin.getLocaleManager().getMessage("warp.delete.not-found",
                     Map.of("name", escape(name), "type", typeLabel)));
                 return 1;
             }
 
-            String typeLabel = type == WaypointType.PUBLIC ? "public" : "private";
-            sender.sendMessage(plugin.getLocaleManager().getMessage("waypoint.delete.success",
+            String typeLabel = type == WarpType.PUBLIC ? "public" : "private";
+            sender.sendMessage(plugin.getLocaleManager().getMessage("warp.delete.success",
                 Map.of("name", escape(name), "type", typeLabel)));
             return 1;
         } catch (Exception e) {
-            return handleError(plugin, ctx, "Failed to execute waypoint del command", e);
+            return handleError(plugin, ctx, "Failed to execute warp del command", e);
         }
     }
 
@@ -664,18 +664,18 @@ public final class WaypointCommand {
         try {
             CommandSourceStack source = ctx.getSource();
             if (!(source.getSender() instanceof Player player)) {
-                source.getSender().sendMessage(getLocaleMessage(plugin, "waypoint.error.player-only"));
+                source.getSender().sendMessage(getLocaleMessage(plugin, "warp.error.player-only"));
                 return 1;
             }
 
-            if (!player.hasPermission("bringteleport.waypoint.del")) {
-                player.sendMessage(getLocaleMessage(plugin, "waypoint.error.no-permission"));
+            if (!player.hasPermission("bringteleport.warp.del")) {
+                player.sendMessage(getLocaleMessage(plugin, "warp.error.no-permission"));
                 return 0;
             }
 
             PendingDeletion pending = PENDING_DELETIONS.remove(player.getUniqueId());
             if (pending == null) {
-                player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.delete.confirm-none", null));
+                player.sendMessage(plugin.getLocaleManager().getMessage("warp.delete.confirm-none", null));
                 return 1;
             }
 
@@ -683,35 +683,35 @@ public final class WaypointCommand {
             long timeoutMs = (long) (timeoutSec * 1000);
 
             if (System.currentTimeMillis() - pending.timestamp > timeoutMs) {
-                player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.delete.confirm-expired",
+                player.sendMessage(plugin.getLocaleManager().getMessage("warp.delete.confirm-expired",
                     Map.of("timeout", String.valueOf(timeoutSec))));
                 return 1;
             }
 
-            WaypointManager manager = plugin.getWaypointManager();
-            UUID ownerUuid = (pending.type == WaypointType.PRIVATE) ? player.getUniqueId() : null;
+            WarpManager manager = plugin.getWarpManager();
+            UUID ownerUuid = (pending.type == WarpType.PRIVATE) ? player.getUniqueId() : null;
 
-            if (!manager.deleteWaypoint(pending.name, pending.type, ownerUuid)) {
-                String typeLabel = pending.type == WaypointType.PUBLIC ? "public" : "private";
-                player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.delete.not-found",
+            if (!manager.deleteWarp(pending.name, pending.type, ownerUuid)) {
+                String typeLabel = pending.type == WarpType.PUBLIC ? "public" : "private";
+                player.sendMessage(plugin.getLocaleManager().getMessage("warp.delete.not-found",
                     Map.of("name", escape(pending.name), "type", typeLabel)));
                 return 1;
             }
 
-            player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.delete.confirm-success",
+            player.sendMessage(plugin.getLocaleManager().getMessage("warp.delete.confirm-success",
                 Map.of("name", escape(pending.name))));
             return 1;
         } catch (Exception e) {
-            return handleError(plugin, ctx, "Failed to execute waypoint confirm command", e);
+            return handleError(plugin, ctx, "Failed to execute warp confirm command", e);
         }
     }
 
-    private static int executeRename(CommandContext<CommandSourceStack> ctx, BringTeleportPlugin plugin, WaypointType type) {
+    private static int executeRename(CommandContext<CommandSourceStack> ctx, BringTeleportPlugin plugin, WarpType type) {
         try {
             CommandSourceStack source = ctx.getSource();
             CommandSender sender = source.getSender();
-            if (!sender.hasPermission("bringteleport.waypoint.rename")) {
-                sender.sendMessage(getLocaleMessage(plugin, "waypoint.error.no-permission"));
+            if (!sender.hasPermission("bringteleport.warp.rename")) {
+                sender.sendMessage(getLocaleMessage(plugin, "warp.error.no-permission"));
                 return 0;
             }
 
@@ -720,20 +720,20 @@ public final class WaypointCommand {
                 String name = resolveName(ctx, plugin);
                 if (name == null) return 1;
 
-                WaypointManager manager = plugin.getWaypointManager();
-                if (type == WaypointType.PUBLIC) {
-                    Optional<Waypoint> existing = manager.getWaypoint(name, WaypointType.PUBLIC, null);
+                WarpManager manager = plugin.getWarpManager();
+                if (type == WarpType.PUBLIC) {
+                    Optional<Warp> existing = manager.getWarp(name, WarpType.PUBLIC, null);
                     if (existing.isEmpty()) {
-                        player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.rename.not-found",
-                            Map.of("name", escape(name), "type", getTypeLabel(plugin, WaypointType.PUBLIC))));
+                        player.sendMessage(plugin.getLocaleManager().getMessage("warp.rename.not-found",
+                            Map.of("name", escape(name), "type", getTypeLabel(plugin, WarpType.PUBLIC))));
                         return 1;
                     }
 
                     boolean isOwner = existing.get().getOwnerUuid() != null
                         && existing.get().getOwnerUuid().equals(player.getUniqueId());
 
-                    if (!isOwner && !player.hasPermission("bringteleport.waypoint.del.other")) {
-                        player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.rename.not-owner", null));
+                    if (!isOwner && !player.hasPermission("bringteleport.warp.del.other")) {
+                        player.sendMessage(plugin.getLocaleManager().getMessage("warp.rename.not-owner", null));
                         return 0;
                     }
                 }
@@ -744,7 +744,7 @@ public final class WaypointCommand {
                         && System.currentTimeMillis() - entry.getValue().timestamp() > RENAME_TIMEOUT_MS);
 
                 PENDING_RENAMES.put(player.getUniqueId(), new PendingRename(name, type, System.currentTimeMillis()));
-                player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.rename.prompt",
+                player.sendMessage(plugin.getLocaleManager().getMessage("warp.rename.prompt",
                     Map.of("name", escape(name), "timeout", String.valueOf(RENAME_TIMEOUT_MS / 1000))));
                 return 1;
             }
@@ -755,16 +755,16 @@ public final class WaypointCommand {
             String name;
             String newName;
             UUID ownerUuid = null;
-            if (type == WaypointType.PUBLIC) {
+            if (type == WarpType.PUBLIC) {
                 if (tokens.size() < 2) {
-                    sender.sendMessage(getLocaleMessage(plugin, "waypoint.rename.usage"));
+                    sender.sendMessage(getLocaleMessage(plugin, "warp.rename.usage"));
                     return 1;
                 }
                 name = tokens.get(0);
                 newName = String.join(" ", tokens.subList(1, tokens.size()));
             } else {
                 if (tokens.size() < 3) {
-                    sender.sendMessage(getLocaleMessage(plugin, "waypoint.rename.usage"));
+                    sender.sendMessage(getLocaleMessage(plugin, "warp.rename.usage"));
                     return 1;
                 }
                 String ownerName = tokens.get(0);
@@ -776,7 +776,7 @@ public final class WaypointCommand {
 
             return performRename(sender, plugin, type, name, newName, ownerUuid);
         } catch (Exception e) {
-            return handleError(plugin, ctx, "Failed to execute waypoint rename command", e);
+            return handleError(plugin, ctx, "Failed to execute warp rename command", e);
         }
     }
 
@@ -785,54 +785,54 @@ public final class WaypointCommand {
         PENDING_RENAMES.remove(player.getUniqueId());
 
         if (System.currentTimeMillis() - pending.timestamp() > RENAME_TIMEOUT_MS) {
-            player.sendMessage(getLocaleMessage(plugin, "waypoint.rename.expired"));
+            player.sendMessage(getLocaleMessage(plugin, "warp.rename.expired"));
             return;
         }
 
-        UUID ownerUuid = (pending.type() == WaypointType.PRIVATE) ? player.getUniqueId() : null;
+        UUID ownerUuid = (pending.type() == WarpType.PRIVATE) ? player.getUniqueId() : null;
         performRename(player, plugin, pending.type(), pending.name(), newName, ownerUuid);
     }
 
-    private static int performRename(CommandSender sender, BringTeleportPlugin plugin, WaypointType type, String name, String newName, UUID ownerUuid) {
+    private static int performRename(CommandSender sender, BringTeleportPlugin plugin, WarpType type, String name, String newName, UUID ownerUuid) {
         if (newName.isEmpty()) {
-            sender.sendMessage(getLocaleMessage(plugin, "waypoint.error.name-required"));
+            sender.sendMessage(getLocaleMessage(plugin, "warp.error.name-required"));
             return 1;
         }
         if (newName.length() > 32) {
-            sender.sendMessage(getLocaleMessage(plugin, "waypoint.error.name-too-long"));
+            sender.sendMessage(getLocaleMessage(plugin, "warp.error.name-too-long"));
             return 1;
         }
 
-        WaypointManager manager = plugin.getWaypointManager();
-        if (manager.getWaypoint(newName, type, ownerUuid).isPresent()) {
-            sender.sendMessage(plugin.getLocaleManager().getMessage("waypoint.rename.duplicate",
+        WarpManager manager = plugin.getWarpManager();
+        if (manager.getWarp(newName, type, ownerUuid).isPresent()) {
+            sender.sendMessage(plugin.getLocaleManager().getMessage("warp.rename.duplicate",
                 Map.of("newName", escape(newName))));
             return 1;
         }
 
-        if (!manager.renameWaypoint(name, type, ownerUuid, newName)) {
-            sender.sendMessage(plugin.getLocaleManager().getMessage("waypoint.rename.not-found",
+        if (!manager.renameWarp(name, type, ownerUuid, newName)) {
+            sender.sendMessage(plugin.getLocaleManager().getMessage("warp.rename.not-found",
                 Map.of("name", escape(name), "type", getTypeLabel(plugin, type))));
             return 1;
         }
 
-        sender.sendMessage(plugin.getLocaleManager().getMessage("waypoint.rename.success",
+        sender.sendMessage(plugin.getLocaleManager().getMessage("warp.rename.success",
             Map.of("name", escape(name), "newName", escape(newName))));
         return 1;
     }
 
-    private static int executeInfo(CommandContext<CommandSourceStack> ctx, BringTeleportPlugin plugin, WaypointType type) {
+    private static int executeInfo(CommandContext<CommandSourceStack> ctx, BringTeleportPlugin plugin, WarpType type) {
         try {
             CommandSourceStack source = ctx.getSource();
             CommandSender sender = source.getSender();
-            if (!sender.hasPermission("bringteleport.waypoint.info")) {
-                sender.sendMessage(getLocaleMessage(plugin, "waypoint.error.no-permission"));
+            if (!sender.hasPermission("bringteleport.warp.info")) {
+                sender.sendMessage(getLocaleMessage(plugin, "warp.error.no-permission"));
                 return 0;
             }
 
             String name;
             UUID ownerUuid = null;
-            if (type == WaypointType.PRIVATE) {
+            if (type == WarpType.PRIVATE) {
                 PrivateTarget target = resolvePrivateTarget(ctx, plugin);
                 if (target == null) return 1;
                 name = target.name();
@@ -843,21 +843,21 @@ public final class WaypointCommand {
                 if (name == null) return 1;
             }
 
-            WaypointManager manager = plugin.getWaypointManager();
+            WarpManager manager = plugin.getWarpManager();
 
-            Optional<Waypoint> opt = manager.getWaypoint(name, type, ownerUuid);
+            Optional<Warp> opt = manager.getWarp(name, type, ownerUuid);
             if (opt.isEmpty()) {
                 var typeLabel = getTypeLabel(plugin, type);
-                sender.sendMessage(plugin.getLocaleManager().getMessage("waypoint.info.not-found",
+                sender.sendMessage(plugin.getLocaleManager().getMessage("warp.info.not-found",
                     Map.of("name", escape(name), "type", typeLabel)));
                 return 1;
             }
 
-            Waypoint waypoint = opt.get();
+            Warp warp = opt.get();
 
             // Resolve creator name
             String creatorName = "???";
-            UUID creatorUuid = waypoint.getOwnerUuid();
+            UUID creatorUuid = warp.getOwnerUuid();
             if (creatorUuid != null) {
                 var offlinePlayer = Bukkit.getOfflinePlayer(creatorUuid);
                 if (offlinePlayer.getName() != null) {
@@ -870,17 +870,17 @@ public final class WaypointCommand {
             }
 
             // Format creation time
-            String formattedDate = formatDateTime(waypoint.getCreatedAt());
+            String formattedDate = formatDateTime(warp.getCreatedAt());
 
             // Build info message
             var typeLabel = getTypeLabel(plugin, type);
-            Map<String, String> placeholders = new HashMap<>(locationPlaceholders(waypoint, plugin));
-            placeholders.put("name", escape(waypoint.getName()));
+            Map<String, String> placeholders = new HashMap<>(locationPlaceholders(warp, plugin));
+            placeholders.put("name", escape(warp.getName()));
             placeholders.put("type", typeLabel);
             placeholders.put("creator", escape(creatorName));
             placeholders.put("date", formattedDate);
 
-            String info = plugin.getLocaleManager().getRaw("waypoint.info.template");
+            String info = plugin.getLocaleManager().getRaw("warp.info.template");
             for (Map.Entry<String, String> entry : placeholders.entrySet()) {
                 info = info.replace("{" + entry.getKey() + "}", entry.getValue());
             }
@@ -888,17 +888,17 @@ public final class WaypointCommand {
             sender.sendMessage(MiniMessage.miniMessage().deserialize(info));
             return 1;
         } catch (Exception e) {
-            return handleError(plugin, ctx, "Failed to execute waypoint info command", e);
+            return handleError(plugin, ctx, "Failed to execute warp info command", e);
         }
     }
 
     // 世界名与坐标占位符（info 模板与共享通知共用同一套格式化）
-    private static Map<String, String> locationPlaceholders(Waypoint waypoint, BringTeleportPlugin plugin) {
+    private static Map<String, String> locationPlaceholders(Warp warp, BringTeleportPlugin plugin) {
         return Map.of(
-            "world", plugin.getLocaleManager().getWorldName(waypoint.getWorld()),
-            "x", String.format("%.0f", waypoint.getX()),
-            "y", String.format("%.0f", waypoint.getY()),
-            "z", String.format("%.0f", waypoint.getZ()));
+            "world", plugin.getLocaleManager().getWorldName(warp.getWorld()),
+            "x", String.format("%.0f", warp.getX()),
+            "y", String.format("%.0f", warp.getY()),
+            "z", String.format("%.0f", warp.getZ()));
     }
 
     // 转义玩家输入中的 MiniMessage 特殊字符，防止路径点名注入标签或破坏 click 参数引号
@@ -921,44 +921,44 @@ public final class WaypointCommand {
         }
     }
 
-    private static int executeTp(CommandContext<CommandSourceStack> ctx, BringTeleportPlugin plugin, WaypointType type) {
+    private static int executeTp(CommandContext<CommandSourceStack> ctx, BringTeleportPlugin plugin, WarpType type) {
         try {
             Player player = resolvePlayer(ctx, plugin);
             if (player == null) return 1;
 
-            if (!player.hasPermission("bringteleport.waypoint.tp")) {
-                player.sendMessage(getLocaleMessage(plugin, "waypoint.error.no-permission"));
+            if (!player.hasPermission("bringteleport.warp.tp")) {
+                player.sendMessage(getLocaleMessage(plugin, "warp.error.no-permission"));
                 return 0;
             }
 
             String name = resolveName(ctx, plugin);
             if (name == null) return 1;
 
-            WaypointManager manager = plugin.getWaypointManager();
-            UUID ownerUuid = (type == WaypointType.PRIVATE) ? player.getUniqueId() : null;
+            WarpManager manager = plugin.getWarpManager();
+            UUID ownerUuid = (type == WarpType.PRIVATE) ? player.getUniqueId() : null;
 
-            Optional<Waypoint> opt = manager.getWaypoint(name, type, ownerUuid);
+            Optional<Warp> opt = manager.getWarp(name, type, ownerUuid);
             if (opt.isEmpty()) {
-                String typeLabel = type == WaypointType.PUBLIC ? "public" : "private";
-                player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.tp.not-found",
+                String typeLabel = type == WarpType.PUBLIC ? "public" : "private";
+                player.sendMessage(plugin.getLocaleManager().getMessage("warp.tp.not-found",
                     Map.of("name", escape(name), "type", typeLabel)));
                 return 1;
             }
 
-            Waypoint waypoint = opt.get();
-            teleportTo(player, plugin, waypoint);
+            Warp warp = opt.get();
+            teleportTo(player, plugin, warp);
             return 1;
         } catch (Exception e) {
-            return handleError(plugin, ctx, "Failed to execute waypoint tp command", e);
+            return handleError(plugin, ctx, "Failed to execute warp tp command", e);
         }
     }
 
     // 传送玩家到路径点（含倒计时、back 记录、成功提示）；世界未加载时返回 false
-    private static boolean teleportTo(Player player, BringTeleportPlugin plugin, Waypoint waypoint) {
-        Location location = plugin.getWaypointManager().toLocation(waypoint);
+    private static boolean teleportTo(Player player, BringTeleportPlugin plugin, Warp warp) {
+        Location location = plugin.getWarpManager().toLocation(warp);
         if (location == null) {
-            player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.tp.world-not-loaded",
-                Map.of("world", plugin.getLocaleManager().getWorldName(waypoint.getWorld()))));
+            player.sendMessage(plugin.getLocaleManager().getMessage("warp.tp.world-not-loaded",
+                Map.of("world", plugin.getLocaleManager().getWorldName(warp.getWorld()))));
             return false;
         }
 
@@ -970,7 +970,7 @@ public final class WaypointCommand {
             String displayMode = ConfigCache.countdownDisplayMode;
             Location playerLoc = player.getLocation();
             Location targetLoc = location;
-            String wpName = waypoint.getName();
+            String wpName = warp.getName();
 
             CountdownContext existing = ACTIVE_COUNTDOWNS.remove(player.getUniqueId());
             if (existing != null) existing.task().cancel();
@@ -1023,14 +1023,14 @@ public final class WaypointCommand {
                         player.playSound(player.getLocation(), soundName, SoundCategory.MASTER, soundVolume, soundPitch);
                     }
 
-                    String titleRaw = plugin.getLocaleManager().getRaw("waypoint.tp.countdown.title")
+                    String titleRaw = plugin.getLocaleManager().getRaw("warp.tp.countdown.title")
                         .replace("{seconds}", secStr);
-                    String subtitleRaw = plugin.getLocaleManager().getRaw("waypoint.tp.countdown.subtitle")
+                    String subtitleRaw = plugin.getLocaleManager().getRaw("warp.tp.countdown.subtitle")
                         .replace("{seconds}", secStr);
                     Component cTitle = MiniMessage.miniMessage().deserialize(titleRaw);
                     Component cSubtitle = MiniMessage.miniMessage().deserialize(subtitleRaw);
 
-                    String chatRaw = plugin.getLocaleManager().getRaw("waypoint.tp.countdown.chat")
+                    String chatRaw = plugin.getLocaleManager().getRaw("warp.tp.countdown.chat")
                         .replace("{seconds}", secStr);
 
                     sendDisplayMessage(player, cTitle, cSubtitle, MiniMessage.miniMessage().deserialize(chatRaw), displayMode);
@@ -1045,7 +1045,7 @@ public final class WaypointCommand {
 
         plugin.getTeleportHistory().record(player, player.getLocation());
         player.teleportAsync(location).thenAccept(success ->
-            sendTeleportSuccess(player, plugin, waypoint.getName()));
+            sendTeleportSuccess(player, plugin, warp.getName()));
 
         return true;
     }
@@ -1055,8 +1055,8 @@ public final class WaypointCommand {
             Player player = resolvePlayer(ctx, plugin);
             if (player == null) return 1;
 
-            if (!player.hasPermission("bringteleport.waypoint.tp")) {
-                player.sendMessage(getLocaleMessage(plugin, "waypoint.error.no-permission"));
+            if (!player.hasPermission("bringteleport.warp.tp")) {
+                player.sendMessage(getLocaleMessage(plugin, "warp.error.no-permission"));
                 return 0;
             }
 
@@ -1064,14 +1064,14 @@ public final class WaypointCommand {
             if (name == null) return 1;
 
             // 同名时私有路径点优先（自己的位置比共享的更符合直觉）
-            WaypointManager manager = plugin.getWaypointManager();
-            Optional<Waypoint> opt = manager.getWaypoint(name, WaypointType.PRIVATE, player.getUniqueId());
+            WarpManager manager = plugin.getWarpManager();
+            Optional<Warp> opt = manager.getWarp(name, WarpType.PRIVATE, player.getUniqueId());
             if (opt.isEmpty()) {
-                opt = manager.getWaypoint(name, WaypointType.PUBLIC, null);
+                opt = manager.getWarp(name, WarpType.PUBLIC, null);
             }
             if (opt.isEmpty()) {
-                player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.tp.not-found",
-                    Map.of("name", escape(name), "type", getTypeLabel(plugin, WaypointType.PUBLIC))));
+                player.sendMessage(plugin.getLocaleManager().getMessage("warp.tp.not-found",
+                    Map.of("name", escape(name), "type", getTypeLabel(plugin, WarpType.PUBLIC))));
                 return 1;
             }
 
@@ -1086,23 +1086,23 @@ public final class WaypointCommand {
         try {
             CommandSourceStack source = ctx.getSource();
             if (!(source.getSender() instanceof Player player)) {
-                source.getSender().sendMessage(getLocaleMessage(plugin, "waypoint.error.player-only"));
+                source.getSender().sendMessage(getLocaleMessage(plugin, "warp.error.player-only"));
                 return 1;
             }
 
-            if (!player.hasPermission("bringteleport.waypoint.tp")) {
-                player.sendMessage(getLocaleMessage(plugin, "waypoint.error.no-permission"));
+            if (!player.hasPermission("bringteleport.warp.tp")) {
+                player.sendMessage(getLocaleMessage(plugin, "warp.error.no-permission"));
                 return 0;
             }
 
             TeleportHistory history = plugin.getTeleportHistory();
             int available = history.getHistorySize(player);
             if (available == 0) {
-                player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.tp.back.no-history", null));
+                player.sendMessage(plugin.getLocaleManager().getMessage("warp.tp.back.no-history", null));
                 return 1;
             }
             if (steps > available) {
-                player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.tp.back.steps-exceed",
+                player.sendMessage(plugin.getLocaleManager().getMessage("warp.tp.back.steps-exceed",
                     Map.of("steps", String.valueOf(steps), "available", String.valueOf(available))));
                 return 1;
             }
@@ -1112,11 +1112,11 @@ public final class WaypointCommand {
             history.setLastBackSource(player, player.getLocation());
 
             player.teleportAsync(target);
-            player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.tp.back.success",
+            player.sendMessage(plugin.getLocaleManager().getMessage("warp.tp.back.success",
                 Map.of("steps", String.valueOf(steps))));
             return 1;
         } catch (Exception e) {
-            return handleError(plugin, ctx, "Failed to execute waypoint tp back command", e);
+            return handleError(plugin, ctx, "Failed to execute warp tp back command", e);
         }
     }
 
@@ -1124,31 +1124,31 @@ public final class WaypointCommand {
         try {
             CommandSourceStack source = ctx.getSource();
             if (!(source.getSender() instanceof Player player)) {
-                source.getSender().sendMessage(getLocaleMessage(plugin, "waypoint.error.player-only"));
+                source.getSender().sendMessage(getLocaleMessage(plugin, "warp.error.player-only"));
                 return 1;
             }
 
-            if (!player.hasPermission("bringteleport.waypoint.tp")) {
-                player.sendMessage(getLocaleMessage(plugin, "waypoint.error.no-permission"));
+            if (!player.hasPermission("bringteleport.warp.tp")) {
+                player.sendMessage(getLocaleMessage(plugin, "warp.error.no-permission"));
                 return 0;
             }
 
             TeleportHistory history = plugin.getTeleportHistory();
             Location target = history.getAndClearLastBackSource(player);
             if (target == null) {
-                player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.tp.back.undo-none", null));
+                player.sendMessage(plugin.getLocaleManager().getMessage("warp.tp.back.undo-none", null));
                 return 1;
             }
 
             player.teleportAsync(target);
-            player.sendMessage(plugin.getLocaleManager().getMessage("waypoint.tp.back.undo-success", null));
+            player.sendMessage(plugin.getLocaleManager().getMessage("warp.tp.back.undo-success", null));
             return 1;
         } catch (Exception e) {
-            return handleError(plugin, ctx, "Failed to execute waypoint tp back undo command", e);
+            return handleError(plugin, ctx, "Failed to execute warp tp back undo command", e);
         }
     }
 
-    private static void sendTeleportSuccess(Player player, BringTeleportPlugin plugin, String waypointName) {
+    private static void sendTeleportSuccess(Player player, BringTeleportPlugin plugin, String warpName) {
         String displayMode = ConfigCache.successDisplayMode;
 
         boolean soundEnabled = ConfigCache.successSoundEnabled;
@@ -1160,18 +1160,18 @@ public final class WaypointCommand {
         }
 
         Component titleComp = MiniMessage.miniMessage().deserialize(
-            plugin.getLocaleManager().getRaw("waypoint.tp.success.title").replace("{name}", escape(waypointName)));
+            plugin.getLocaleManager().getRaw("warp.tp.success.title").replace("{name}", escape(warpName)));
         Component subtitleComp = MiniMessage.miniMessage().deserialize(
-            plugin.getLocaleManager().getRaw("waypoint.tp.success.subtitle").replace("{name}", escape(waypointName)));
-        Component chatComp = plugin.getLocaleManager().getMessage("waypoint.tp.success.chat",
-            Map.of("name", escape(waypointName)));
+            plugin.getLocaleManager().getRaw("warp.tp.success.subtitle").replace("{name}", escape(warpName)));
+        Component chatComp = plugin.getLocaleManager().getMessage("warp.tp.success.chat",
+            Map.of("name", escape(warpName)));
         sendDisplayMessage(player, titleComp, subtitleComp, chatComp, displayMode);
     }
 
     private static void displayCancelMessage(Player player, BringTeleportPlugin plugin, String displayMode) {
-        String text = plugin.getLocaleManager().getRaw("waypoint.tp.countdown.cancelled");
+        String text = plugin.getLocaleManager().getRaw("warp.tp.countdown.cancelled");
         Component comp = MiniMessage.miniMessage().deserialize(text);
-        Component chatComp = plugin.getLocaleManager().getMessage("waypoint.tp.countdown.cancelled", null);
+        Component chatComp = plugin.getLocaleManager().getMessage("warp.tp.countdown.cancelled", null);
         sendDisplayMessage(player, comp, comp, chatComp, displayMode);
     }
 
@@ -1179,8 +1179,8 @@ public final class WaypointCommand {
         return plugin.getLocaleManager().getMessage(path, null);
     }
 
-    private static String getTypeLabel(BringTeleportPlugin plugin, WaypointType type) {
-        String key = type == WaypointType.PUBLIC ? "waypoint.info.type.public" : "waypoint.info.type.private";
+    private static String getTypeLabel(BringTeleportPlugin plugin, WarpType type) {
+        String key = type == WarpType.PUBLIC ? "warp.info.type.public" : "warp.info.type.private";
         return plugin.getLocaleManager().getRaw(key);
     }
 

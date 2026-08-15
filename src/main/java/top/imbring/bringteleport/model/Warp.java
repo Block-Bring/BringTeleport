@@ -4,7 +4,7 @@ import org.bukkit.Location;
 
 import java.util.UUID;
 
-public class Waypoint {
+public class Warp {
 
     private final int id;
     private final String name;
@@ -14,12 +14,12 @@ public class Waypoint {
     private final double z;
     private final float yaw;
     private final float pitch;
-    private final WaypointType type;
+    private final WarpType type;
     private final UUID ownerUuid;
     private final String createdAt;
 
-    public Waypoint(int id, String name, String world, double x, double y, double z,
-                    float yaw, float pitch, WaypointType type, UUID ownerUuid, String createdAt) {
+    public Warp(int id, String name, String world, double x, double y, double z,
+                    float yaw, float pitch, WarpType type, UUID ownerUuid, String createdAt) {
         this.id = id;
         this.name = name;
         this.world = world;
@@ -33,8 +33,8 @@ public class Waypoint {
         this.createdAt = createdAt;
     }
 
-    public static Waypoint fromLocation(String name, Location location, WaypointType type, UUID ownerUuid) {
-        return new Waypoint(
+    public static Warp fromLocation(String name, Location location, WarpType type, UUID ownerUuid) {
+        return new Warp(
             0, name,
             location.getWorld().getName(),
             location.getX(), location.getY(), location.getZ(),
@@ -75,7 +75,7 @@ public class Waypoint {
         return this.pitch;
     }
 
-    public WaypointType getType() {
+    public WarpType getType() {
         return this.type;
     }
 
@@ -87,7 +87,7 @@ public class Waypoint {
         return this.createdAt;
     }
 
-    public enum WaypointType {
+    public enum WarpType {
         PUBLIC,
         PRIVATE
     }

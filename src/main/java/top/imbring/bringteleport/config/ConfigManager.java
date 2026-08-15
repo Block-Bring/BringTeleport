@@ -35,6 +35,14 @@ public final class ConfigManager {
         }
 
         YamlConfiguration current = YamlConfiguration.loadConfiguration(file);
+        boolean changed = false;
+
+        // v2 迁移：waypoint 模块更名为 warp，旧键路径重命名（保留用户自定义值）
+        if (current.contains("waypoint") && !current.contains("warp")) {
+            current.set("warp", current.get("waypoint"));
+            current.set("waypoint", null);
+            changed = true;
+        }
 
         try (InputStream in = plugin.getResource(fileName)) {
             if (in == null) return;
@@ -44,7 +52,7 @@ public final class ConfigManager {
                 defaults.load(reader);
             }
 
-            if (mergeMissing(current, defaults)) {
+            if (mergeMissing(current, defaults) || changed) {
                 current.save(file);
                 plugin.getLogger().info("Migrated " + fileName + " — added missing keys");
             }
