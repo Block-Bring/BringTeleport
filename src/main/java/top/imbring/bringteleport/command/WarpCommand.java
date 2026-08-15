@@ -36,9 +36,10 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -172,11 +173,12 @@ public final class WarpCommand {
 
     // ===== A1: Tab completion helpers =====
     private static CompletableFuture<Suggestions> suggestPublicWarps(CommandSourceStack source, SuggestionsBuilder builder, WarpManager mgr, boolean filterOwner) {
-        var stream = mgr.getPublicWarps().stream();
+        List<Warp> warps = mgr.getPublicWarps();
         if (filterOwner && source.getSender() instanceof Player player) {
-            stream = stream.filter(wp -> player.getUniqueId().equals(wp.getOwnerUuid()));
+            warps = warps.stream().filter(wp -> player.getUniqueId().equals(wp.getOwnerUuid())).toList();
         }
-        stream.map(Warp::getName)
+        warps = sortStarredFirst(warps, starredIds(source, mgr));
+        warps.stream().map(Warp::getName)
             .filter(name -> name.startsWith(builder.getRemaining()))
             .forEach(builder::suggest);
         return builder.buildFuture();
@@ -184,8 +186,8 @@ public final class WarpCommand {
 
     private static CompletableFuture<Suggestions> suggestPrivateWarps(CommandSourceStack source, SuggestionsBuilder builder, WarpManager mgr) {
         if (source.getSender() instanceof Player player) {
-            mgr.getPrivateWarps(player.getUniqueId()).stream()
-                .map(Warp::getName)
+            List<Warp> warps = sortStarredFirst(mgr.getPrivateWarps(player.getUniqueId()), starredIds(source, mgr));
+            warps.stream().map(Warp::getName)
                 .filter(name -> name.startsWith(builder.getRemaining()))
                 .forEach(builder::suggest);
             return builder.buildFuture();
@@ -236,16 +238,39 @@ public final class WarpCommand {
             mgr.getPublicWarps().stream().map(Warp::getName).toList());
     }
 
-    // tpwarp 补全：全部公有路径点 + 玩家自己的私有路径点（去重）
+    // tpwarp 补全：全部公有路径点 + 玩家自己的私有路径点（同名去重，私有优先保留），收藏的排最前
     private static CompletableFuture<Suggestions> suggestTpWarp(CommandSourceStack source, SuggestionsBuilder builder, WarpManager mgr) {
-        if (!(source.getSender() instanceof Player)) {
+        if (!(source.getSender() instanceof Player player)) {
             return builder.buildFuture();
         }
-        Set<String> names = new LinkedHashSet<>();
-        mgr.getPublicWarps().stream().map(Warp::getName).forEach(names::add);
-        mgr.getPrivateWarps(((Player) source.getSender()).getUniqueId()).stream()
-            .map(Warp::getName).forEach(names::add);
-        return suggestTokens(builder, List.copyOf(names));
+        Map<String, Warp> byName = new LinkedHashMap<>();
+        for (Warp warp : mgr.getPrivateWarps(player.getUniqueId())) {
+            byName.putIfAbsent(warp.getName(), warp);
+        }
+        for (Warp warp : mgr.getPublicWarps()) {
+            byName.putIfAbsent(warp.getName(), warp);
+        }
+        List<Warp> warps = sortStarredFirst(new ArrayList<>(byName.values()), starredIds(source, mgr));
+        return suggestTokens(builder, warps.stream().map(Warp::getName).toList());
+    }
+
+    // 收藏优先排序：收藏的路径点排在前，未收藏的排在后，两组内均按名称排序
+    private static List<Warp> sortStarredFirst(List<Warp> warps, Set<Integer> starredIds) {
+        if (starredIds.isEmpty()) {
+            return warps;
+        }
+        List<Warp> sorted = new ArrayList<>(warps);
+        sorted.sort(Comparator.comparing((Warp warp) -> !starredIds.contains(warp.getId()))
+            .thenComparing(Warp::getName));
+        return sorted;
+    }
+
+    // 玩家视角的收藏 ID 集合；控制台无收藏概念，返回空集
+    private static Set<Integer> starredIds(CommandSourceStack source, WarpManager mgr) {
+        if (source.getSender() instanceof Player player) {
+            return mgr.getStarredIds(player.getUniqueId());
+        }
+        return Set.of();
     }
 
     // ===== A2: Player & name resolution helpers =====
@@ -431,6 +456,31 @@ public final class WarpCommand {
                         .executes(ctx -> executeTpBackUndo(ctx, plugin)))
                     .then(argument("index", IntegerArgumentType.integer(1))
                         .executes(ctx -> executeTpBack(ctx, plugin, IntegerArgumentType.getInteger(ctx, "index"))))))
+            .then(literal("star")
+                .then(literal("add")
+                    .then(literal(TYPE_PUBLIC)
+                        .then(argument("name", string)
+                            .suggests((ctx, builder) ->
+                                suggestPublicWarps(ctx.getSource(), builder, plugin.getWarpManager(), false))
+                            .executes(ctx -> executeStarAdd(ctx, plugin, WarpType.PUBLIC))))
+                    .then(literal(TYPE_PRIVATE)
+                        .then(argument("name", string)
+                            .suggests((ctx, builder) ->
+                                suggestPrivateWarps(ctx.getSource(), builder, plugin.getWarpManager()))
+                            .executes(ctx -> executeStarAdd(ctx, plugin, WarpType.PRIVATE)))))
+                .then(literal("remove")
+                    .then(literal(TYPE_PUBLIC)
+                        .then(argument("name", string)
+                            .suggests((ctx, builder) ->
+                                suggestPublicWarps(ctx.getSource(), builder, plugin.getWarpManager(), false))
+                            .executes(ctx -> executeStarRemove(ctx, plugin, WarpType.PUBLIC))))
+                    .then(literal(TYPE_PRIVATE)
+                        .then(argument("name", string)
+                            .suggests((ctx, builder) ->
+                                suggestPrivateWarps(ctx.getSource(), builder, plugin.getWarpManager()))
+                            .executes(ctx -> executeStarRemove(ctx, plugin, WarpType.PRIVATE)))))
+                .then(literal("list")
+                    .executes(ctx -> executeStarList(ctx, plugin))))
             .build();
 
         // 玩家移动监听器：传送倒计时期间移动则取消
@@ -885,6 +935,12 @@ public final class WarpCommand {
                 info = info.replace("{" + entry.getKey() + "}", entry.getValue());
             }
 
+            // 公有路径点公开展示收藏数
+            if (type == WarpType.PUBLIC) {
+                info += "\n" + plugin.getLocaleManager().getRaw("warp.info.stars")
+                    .replace("{stars}", String.valueOf(manager.getStarCount(warp.getId())));
+            }
+
             sender.sendMessage(MiniMessage.miniMessage().deserialize(info));
             return 1;
         } catch (Exception e) {
@@ -1063,22 +1119,139 @@ public final class WarpCommand {
             String name = resolveName(ctx, plugin);
             if (name == null) return 1;
 
-            // 同名时私有路径点优先（自己的位置比共享的更符合直觉）
+            // 同名时优先级：收藏的路径点 > 自己的私有 > 公有
             WarpManager manager = plugin.getWarpManager();
-            Optional<Warp> opt = manager.getWarp(name, WarpType.PRIVATE, player.getUniqueId());
-            if (opt.isEmpty()) {
-                opt = manager.getWarp(name, WarpType.PUBLIC, null);
-            }
-            if (opt.isEmpty()) {
+            UUID uuid = player.getUniqueId();
+            Optional<Warp> mine = manager.getWarp(name, WarpType.PRIVATE, uuid);
+            Optional<Warp> shared = manager.getWarp(name, WarpType.PUBLIC, null);
+            Warp chosen;
+            if (mine.isPresent() && manager.isStarred(mine.get().getId(), uuid)) {
+                chosen = mine.get();
+            } else if (shared.isPresent() && manager.isStarred(shared.get().getId(), uuid)) {
+                chosen = shared.get();
+            } else if (mine.isPresent()) {
+                chosen = mine.get();
+            } else if (shared.isPresent()) {
+                chosen = shared.get();
+            } else {
                 player.sendMessage(plugin.getLocaleManager().getMessage("warp.tp.not-found",
                     Map.of("name", escape(name), "type", getTypeLabel(plugin, WarpType.PUBLIC))));
                 return 1;
             }
 
-            teleportTo(player, plugin, opt.get());
+            teleportTo(player, plugin, chosen);
             return 1;
         } catch (Exception e) {
             return handleError(plugin, ctx, "Failed to execute tpwarp command", e);
+        }
+    }
+
+    private static int executeStarAdd(CommandContext<CommandSourceStack> ctx, BringTeleportPlugin plugin, WarpType type) {
+        try {
+            Player player = resolvePlayer(ctx, plugin);
+            if (player == null) return 1;
+
+            if (!player.hasPermission("bringteleport.warp.star")) {
+                player.sendMessage(getLocaleMessage(plugin, "warp.error.no-permission"));
+                return 0;
+            }
+
+            String name = resolveName(ctx, plugin);
+            if (name == null) return 1;
+
+            WarpManager manager = plugin.getWarpManager();
+            UUID ownerUuid = (type == WarpType.PRIVATE) ? player.getUniqueId() : null;
+            Optional<Warp> opt = manager.getWarp(name, type, ownerUuid);
+            if (opt.isEmpty()) {
+                player.sendMessage(plugin.getLocaleManager().getMessage("warp.star.add-not-found",
+                    Map.of("name", escape(name), "type", getTypeLabel(plugin, type))));
+                return 1;
+            }
+
+            if (!manager.starWarp(opt.get().getId(), player.getUniqueId())) {
+                player.sendMessage(plugin.getLocaleManager().getMessage("warp.star.add-duplicate",
+                    Map.of("name", escape(name), "type", getTypeLabel(plugin, type))));
+                return 1;
+            }
+
+            player.sendMessage(plugin.getLocaleManager().getMessage("warp.star.add-success",
+                Map.of("name", escape(name), "type", getTypeLabel(plugin, type))));
+            return 1;
+        } catch (Exception e) {
+            return handleError(plugin, ctx, "Failed to execute warp star add command", e);
+        }
+    }
+
+    private static int executeStarRemove(CommandContext<CommandSourceStack> ctx, BringTeleportPlugin plugin, WarpType type) {
+        try {
+            Player player = resolvePlayer(ctx, plugin);
+            if (player == null) return 1;
+
+            if (!player.hasPermission("bringteleport.warp.star")) {
+                player.sendMessage(getLocaleMessage(plugin, "warp.error.no-permission"));
+                return 0;
+            }
+
+            String name = resolveName(ctx, plugin);
+            if (name == null) return 1;
+
+            WarpManager manager = plugin.getWarpManager();
+            UUID ownerUuid = (type == WarpType.PRIVATE) ? player.getUniqueId() : null;
+            Optional<Warp> opt = manager.getWarp(name, type, ownerUuid);
+            if (opt.isEmpty()) {
+                player.sendMessage(plugin.getLocaleManager().getMessage("warp.star.remove-not-found",
+                    Map.of("name", escape(name), "type", getTypeLabel(plugin, type))));
+                return 1;
+            }
+
+            if (!manager.unstarWarp(opt.get().getId(), player.getUniqueId())) {
+                player.sendMessage(plugin.getLocaleManager().getMessage("warp.star.remove-not-starred",
+                    Map.of("name", escape(name), "type", getTypeLabel(plugin, type))));
+                return 1;
+            }
+
+            player.sendMessage(plugin.getLocaleManager().getMessage("warp.star.remove-success",
+                Map.of("name", escape(name), "type", getTypeLabel(plugin, type))));
+            return 1;
+        } catch (Exception e) {
+            return handleError(plugin, ctx, "Failed to execute warp star remove command", e);
+        }
+    }
+
+    private static int executeStarList(CommandContext<CommandSourceStack> ctx, BringTeleportPlugin plugin) {
+        try {
+            Player player = resolvePlayer(ctx, plugin);
+            if (player == null) return 1;
+
+            if (!player.hasPermission("bringteleport.warp.star")) {
+                player.sendMessage(getLocaleMessage(plugin, "warp.error.no-permission"));
+                return 0;
+            }
+
+            WarpManager manager = plugin.getWarpManager();
+            Set<Integer> ids = manager.getStarredIds(player.getUniqueId());
+            if (ids.isEmpty()) {
+                player.sendMessage(getLocaleMessage(plugin, "warp.star.list-empty"));
+                return 1;
+            }
+
+            List<Warp> starred = new ArrayList<>();
+            for (int id : ids) {
+                manager.getWarpById(id).ifPresent(starred::add);
+            }
+            starred.sort(Comparator.comparing(Warp::getName));
+
+            player.sendMessage(MiniMessage.miniMessage().deserialize(
+                plugin.getLocaleManager().getRaw("warp.star.list-header")));
+            for (Warp warp : starred) {
+                Map<String, String> placeholders = new HashMap<>(locationPlaceholders(warp, plugin));
+                placeholders.put("name", escape(warp.getName()));
+                placeholders.put("type", getTypeLabel(plugin, warp.getType()));
+                player.sendMessage(plugin.getLocaleManager().getMessage("warp.star.list-item", placeholders));
+            }
+            return 1;
+        } catch (Exception e) {
+            return handleError(plugin, ctx, "Failed to execute warp star list command", e);
         }
     }
 

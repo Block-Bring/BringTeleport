@@ -42,6 +42,11 @@ warp:
     <green>/warp tp back [index]</green>  <white>返回传送前的位置</white>
     <green>/warp tp back undo</green>  <white>撤销上次 back</white>
     <green>/tpwarp <name></green>  <white>直接传送到路径点</white>
+
+    <dark_green>◈ 收藏</dark_green>
+    <green>/warp star add public|private <name></green>  <white>收藏路径点</white>
+    <green>/warp star remove public|private <name></green>  <white>取消收藏路径点</white>
+    <green>/warp star list</green>  <white>查看我的收藏</white>
   create:
     success: <green>✔</green> <white>路径点 </white><yellow>{name}</yellow><white> ({type})
       已创建</white>
@@ -95,7 +100,21 @@ warp:
       <gold>世界：<green>{world}
       <gold>坐标：<green>{x} {y} {z}
       <gold>===================
+    # 公有路径点公开展示的收藏数（仅公有路径点的 info 显示此行）
+    stars: <gold>⭐ 收藏：<green>{stars}
     not-found: <red>路径点 </red><yellow>{name}</yellow><red> ({type}) 不存在</red>
+  star:
+    add-success: <green>✔</green> <white>已收藏路径点 </white><yellow>{name}</yellow><white> ({type})</white>
+    add-duplicate: <red>路径点 </red><yellow>{name}</yellow><red> ({type}) 已在你的收藏中</red>
+    add-not-found: <red>路径点 </red><yellow>{name}</yellow><red> ({type}) 不存在</red>
+    remove-success: <green>✔</green> <white>已取消收藏路径点 </white><yellow>{name}</yellow><white> ({type})</white>
+    remove-not-starred: <red>路径点 </red><yellow>{name}</yellow><red> ({type}) 不在你的收藏中</red>
+    remove-not-found: <red>路径点 </red><yellow>{name}</yellow><red> ({type}) 不存在</red>
+    list-empty: <red>你还没有收藏任何路径点</red>
+    list-header: |
+
+      <gold>═══ <white>我的收藏</white> <gold>═══
+    list-item: <white>· </white><yellow>{name}</yellow> <gray>({type})</gray> <dark_gray>{world} {x} {y} {z}</dark_gray>
   tp:
     countdown:
       title: <bold><gold>即将传送</gold></bold>

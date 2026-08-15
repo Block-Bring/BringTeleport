@@ -31,6 +31,9 @@ permissions:
   bringteleport.warp.tp:
     description: 传送至路径点
     default: true
+  bringteleport.warp.star:
+    description: 收藏路径点
+    default: true
 
   # Wildcards
   bringteleport.warp.*:
@@ -43,6 +46,7 @@ permissions:
       bringteleport.warp.info: true
       bringteleport.warp.rename: true
       bringteleport.warp.tp: true
+      bringteleport.warp.star: true
   bringteleport.*:
     description: 所有 BringTeleport 权限
     default: op

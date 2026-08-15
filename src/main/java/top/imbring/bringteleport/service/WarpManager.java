@@ -15,8 +15,10 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.logging.Level;
 
@@ -77,6 +79,16 @@ public class WarpManager {
 
                 stmt.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_warp_private_name " +
                     "ON warps(name, owner_uuid) WHERE type = 'PRIVATE'");
+
+                stmt.execute("""
+                    CREATE TABLE IF NOT EXISTS warp_stars (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        warp_id INTEGER NOT NULL,
+                        player_uuid TEXT NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        UNIQUE(warp_id, player_uuid)
+                    )
+                """);
             }
             this.schemaReady = true;
         } catch (SQLException e) {
@@ -132,11 +144,106 @@ public class WarpManager {
             if (type == WarpType.PRIVATE) {
                 pstmt.setString(2, ownerUuid.toString());
             }
-            return pstmt.executeUpdate() > 0;
+            boolean deleted = pstmt.executeUpdate() > 0;
+            if (deleted) {
+                // 路径点删除后清理其收藏记录（按 id 关联，改名不影响）
+                try (PreparedStatement clean = getConnection().prepareStatement(
+                    "DELETE FROM warp_stars WHERE warp_id IN (SELECT id FROM warps WHERE name = ? AND type = ?)")) {
+                    clean.setString(1, name);
+                    clean.setString(2, type.name());
+                    clean.executeUpdate();
+                }
+            }
+            return deleted;
         } catch (SQLException e) {
             this.plugin.getLogger().log(Level.SEVERE, "Failed to delete warp", e);
             return false;
         }
+    }
+
+    /**
+     * Star a warp for a player. Returns false if already starred.
+     */
+    public boolean starWarp(int warpId, UUID playerUuid) {
+        String sql = "INSERT INTO warp_stars (warp_id, player_uuid) VALUES (?, ?)";
+        try (PreparedStatement pstmt = getConnection().prepareStatement(sql)) {
+            pstmt.setInt(1, warpId);
+            pstmt.setString(2, playerUuid.toString());
+            pstmt.executeUpdate();
+            return true;
+        } catch (SQLException e) {
+            if (e.getMessage() != null && e.getMessage().contains("UNIQUE")) {
+                return false;
+            }
+            this.plugin.getLogger().log(Level.SEVERE, "Failed to star warp", e);
+            return false;
+        }
+    }
+
+    /**
+     * Remove a star. Returns false if it wasn't starred.
+     */
+    public boolean unstarWarp(int warpId, UUID playerUuid) {
+        String sql = "DELETE FROM warp_stars WHERE warp_id = ? AND player_uuid = ?";
+        try (PreparedStatement pstmt = getConnection().prepareStatement(sql)) {
+            pstmt.setInt(1, warpId);
+            pstmt.setString(2, playerUuid.toString());
+            return pstmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            this.plugin.getLogger().log(Level.SEVERE, "Failed to unstar warp", e);
+            return false;
+        }
+    }
+
+    public boolean isStarred(int warpId, UUID playerUuid) {
+        String sql = "SELECT 1 FROM warp_stars WHERE warp_id = ? AND player_uuid = ?";
+        try (PreparedStatement pstmt = getConnection().prepareStatement(sql)) {
+            pstmt.setInt(1, warpId);
+            pstmt.setString(2, playerUuid.toString());
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next();
+            }
+        } catch (SQLException e) {
+            this.plugin.getLogger().log(Level.SEVERE, "Failed to check star", e);
+            return false;
+        }
+    }
+
+    /**
+     * All warp ids starred by a player (used for Tab-completion ordering).
+     */
+    public Set<Integer> getStarredIds(UUID playerUuid) {
+        Set<Integer> ids = new HashSet<>();
+        String sql = "SELECT warp_id FROM warp_stars WHERE player_uuid = ?";
+        try (PreparedStatement pstmt = getConnection().prepareStatement(sql)) {
+            pstmt.setString(1, playerUuid.toString());
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    ids.add(rs.getInt("warp_id"));
+                }
+            }
+        } catch (SQLException e) {
+            this.plugin.getLogger().log(Level.SEVERE, "Failed to list starred warps", e);
+        }
+        return ids;
+    }
+
+    /**
+     * Number of players who starred a warp (public info display).
+     */
+    public int getStarCount(int warpId) {
+        String sql = "SELECT COUNT(*) FROM warp_stars WHERE warp_id = ?";
+        try (PreparedStatement pstmt = getConnection().prepareStatement(sql)) {
+            pstmt.setInt(1, warpId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1);
+                }
+            }
+        } catch (SQLException e) {
+            this.plugin.getLogger().log(Level.SEVERE, "Failed to count stars", e);
+        }
+        return 0;
     }
 
     /**
@@ -193,6 +300,24 @@ public class WarpManager {
             }
         } catch (SQLException e) {
             this.plugin.getLogger().log(Level.SEVERE, "Failed to get warp", e);
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Get a warp by its database id (used by the star system).
+     */
+    public Optional<Warp> getWarpById(int id) {
+        String sql = "SELECT * FROM warps WHERE id = ?";
+        try (PreparedStatement pstmt = getConnection().prepareStatement(sql)) {
+            pstmt.setInt(1, id);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return Optional.of(mapRow(rs));
+                }
+            }
+        } catch (SQLException e) {
+            this.plugin.getLogger().log(Level.SEVERE, "Failed to get warp by id", e);
         }
         return Optional.empty();
     }

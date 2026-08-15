@@ -49,9 +49,14 @@ bringteleport.reload  默认 op  重载插件配置文件
 | `/warp tp private <name>` | 传送到私有路径点 | bringteleport.warp.tp |
 | `/warp tp back [index]` | 返回传送前的位置（index 默认为 1） | bringteleport.warp.tp |
 | `/warp tp back undo` | 撤销上次 back，回到 back 前的位置 | bringteleport.warp.tp |
+| `/warp star add public\|private <name>` | 收藏路径点 | bringteleport.warp.star |
+| `/warp star remove public\|private <name>` | 取消收藏路径点 | bringteleport.warp.star |
+| `/warp star list` | 查看我的收藏 | bringteleport.warp.star |
 | `/warp help` | 显示帮助 | - |
 
 别名：`/wp`
+
+收藏的路径点在 Tab 补全中会排在任何未收藏的路径点前面（收藏之间按名称排序）；`/tpwarp` 重名时优先传送到收藏的路径点。
 
 > 服务器控制台（后台）也可执行 `info` / `delete` / `rename` 命令；操作私有路径点时需指定玩家名，如 `/warp info private <玩家名> <name>`，控制台删除直接生效、不经过确认；控制台重命名直接给两个参数：`/warp rename public <name> <新名字>`、`/warp rename private <玩家名> <name> <新名字>`。
 
@@ -65,6 +70,7 @@ bringteleport.warp.del.other  默认 op    删除其他玩家的公有路径点
 bringteleport.warp.info       默认 true  查看路径点信息
 bringteleport.warp.rename     默认 true  重命名路径点
 bringteleport.warp.tp         默认 true  传送至路径点
+bringteleport.warp.star       默认 true  收藏路径点
 ```
 
 ### 配置
@@ -92,6 +98,7 @@ bringteleport.*  默认 op  所有 BringTeleport 权限
     bringteleport.warp.info       默认 true  查看路径点信息
     bringteleport.warp.rename     默认 true  重命名路径点
     bringteleport.warp.tp         默认 true  传送至路径点
+    bringteleport.warp.star       默认 true  收藏路径点
 ```
 
 一键给权：`lp user <玩家> permission set bringteleport.* true`
