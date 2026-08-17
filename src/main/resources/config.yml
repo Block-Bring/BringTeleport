@@ -60,5 +60,18 @@ warp:
         # 音调（0.5 - 2.0）
         pitch: 1.0
 
+death-back:
+  # 是否启用死亡返回功能（玩家死亡后用 /back 返回死亡地点）
+  enabled: true
+  # 玩家复活后是否提示可以用 /back 返回死亡地点
+  notify-on-respawn: true
+  safe-point:
+    # 死亡点无法安全站立（如掉进岩浆）时，寻找最近的安全落脚点，
+    # /back 会传送到安全点而非危险位置
+    enabled: true
+    # 搜索半径（格）：水平 / 垂直（垂直为上下各多少格）
+    radius-horizontal: 32
+    radius-vertical: 16
+
 # 插件配置版本
 config-version: 2

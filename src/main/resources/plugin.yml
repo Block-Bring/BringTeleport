@@ -35,6 +35,11 @@ permissions:
     description: 收藏路径点
     default: true
 
+  # Death back feature permissions
+  bringteleport.deathback:
+    description: 死亡后返回死亡地点
+    default: true
+
   # Wildcards
   bringteleport.warp.*:
     description: 所有路径点权限
@@ -53,3 +58,4 @@ permissions:
     children:
       bringteleport.reload: true
       bringteleport.warp.*: true
+      bringteleport.deathback: true

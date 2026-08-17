@@ -8,6 +8,7 @@
 - **收藏（Star）系统**：收藏的路径点在 Tab 补全中置顶，告别翻菜单
 - **传送倒计时**：默认 3 秒延迟，期间移动自动取消，防误触
 - **返回上一站**：`/warp tp back`，传错了随时回去
+- **死亡返回**：`/back` 一键回到死亡地点，捡回掉落物
 - **SQLite 存储**：重启不丢数据
 - **MiniMessage 彩色文本**：所有提示消息都能在 locales.yml 里自定义
 
@@ -64,6 +65,18 @@
 传送默认有 3 秒倒计时，期间移动会取消传送；这些行为都可以在 config.yml 里调整。
 
 `/tpwarp` 遇到同名路径点时，优先传送到：**收藏的 > 自己的私有 > 公有**。
+
+### 死亡返回
+
+死亡后想回去捡掉落？死亡位置会自动记录（SQLite 持久化，重启不丢），复活后直接：
+
+| 命令 | 说明 |
+|---|---|
+| `/back` | 立即返回最近一次死亡地点（无倒计时） |
+
+每次死亡只保留最近一次记录，`/back` 使用一次后自动清除。返回后可以用 `/warp tp back undo` 撤销（回到返回前的位置）。
+
+> 仅记录**有 `bringteleport.deathback` 权限**的玩家的死亡位置；没有死亡记录时使用 `/back` 会提示"没有可返回的死亡记录"。
 
 ### 收藏（Star）
 
@@ -125,6 +138,11 @@
 | warp.teleport.countdown.cancel-on-move.* | — | 移动取消传送（enabled / display / sound.name / volume / pitch） |
 | warp.teleport.success.display | `title` | 传送成功提示方式：`subtitle` / `title` / `both` / `chat` |
 | warp.teleport.success.sound.* | — | 传送成功音效（enabled / name / volume / pitch） |
+| death-back.enabled | `true` | 是否启用死亡返回功能（`/back`） |
+| death-back.notify-on-respawn | `true` | 玩家复活后是否提示可以用 `/back` 返回死亡地点 |
+| death-back.safe-point.enabled | `true` | 死亡点无法安全站立（如掉进岩浆）时，自动寻找最近的安全落脚点 |
+| death-back.safe-point.radius-horizontal | `32` | 安全点搜索的水平半径（格） |
+| death-back.safe-point.radius-vertical | `16` | 安全点搜索的垂直半径（格，上下各多少） |
 
 ### locales.yml
 
@@ -151,6 +169,7 @@ world-names:
 | bringteleport.warp.rename | 玩家 | 重命名路径点 |
 | bringteleport.warp.tp | 玩家 | 传送到路径点 |
 | bringteleport.warp.star | 玩家 | 收藏路径点 |
+| bringteleport.deathback | 玩家 | 死亡后返回死亡地点（`/back`） |
 | bringteleport.warp.* | op | 以上所有路径点权限 |
 | bringteleport.* | op | 插件全部权限 |
 

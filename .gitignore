@@ -28,6 +28,4 @@ LOG.md
 log/
 reasonix.toml
 
-# Codex
-.codex/
 AGENTS.md

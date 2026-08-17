@@ -143,3 +143,14 @@ warp:
     player-required: <red>控制台操作私有路径点需指定玩家名，格式：</red><yellow>/warp <info|delete>
       private <玩家名> <路径点名称></yellow>
     player-not-found: <red>玩家 </red><yellow>{player}</yellow><red> 不存在或从未登录过服务器</red>
+
+# ========== 死亡返回 ==========
+deathback:
+  success: <green>✔</green> <white>已返回死亡地点（</white><yellow>{world} {x}, {y}, {z}</yellow><white>）</white>
+  notify: <white>你可以输入 </white><green>/back</green><white> 返回死亡地点</white>
+  error:
+    no-permission: <red>你没有使用死亡返回的权限</red>
+    player-only: <red>只有玩家才能使用此命令</red>
+    disabled: <red>死亡返回功能未启用</red>
+    no-record: <red>没有可返回的死亡记录</red>
+    world-not-loaded: <red>死亡地点所在世界 </red><yellow>{world}</yellow><red> 未加载</red>
