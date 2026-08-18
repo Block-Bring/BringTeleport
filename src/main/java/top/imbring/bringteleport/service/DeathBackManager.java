@@ -1,5 +1,6 @@
 package top.imbring.bringteleport.service;
 
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -13,6 +14,8 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 
 /**
@@ -34,6 +37,9 @@ public class DeathBackManager {
     private final JavaPlugin plugin;
     private final String dbUrl;
     private Connection connection;
+
+    // 进行中的异步安全点搜索：/back 需等待其完成再读取记录，避免落回危险死亡点
+    private final ConcurrentHashMap<UUID, CompletableFuture<Void>> pendingSearches = new ConcurrentHashMap<>();
 
     public DeathBackManager(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -91,18 +97,10 @@ public class DeathBackManager {
     }
 
     /**
-     * 记录死亡位置；死亡点危险（无法安全站立）时同步寻找最近安全点一并存储，
-     * 找不到安全点则 safe 字段为 null（/back 时回退传死亡点）。
+     * 记录死亡位置（不搜索安全点）。
+     * 安全点开关关闭、或死亡点本身安全时使用；safe 列保持 NULL，/back 回退传死亡点。
      */
-    public void saveDeathLocation(Player player, Location location, int radiusH, int radiusV) {
-        Double safeX = null, safeY = null, safeZ = null;
-        Location safe = SafePointFinder.findSafePoint(location, radiusH, radiusV);
-        if (safe != null && !sameSpot(safe, location)) {
-            safeX = safe.getX();
-            safeY = safe.getY();
-            safeZ = safe.getZ();
-        }
-
+    public void saveDeathLocation(Player player, Location location) {
         try (PreparedStatement pstmt = getConnection().prepareStatement(UPSERT_SQL)) {
             pstmt.setString(1, player.getUniqueId().toString());
             pstmt.setString(2, location.getWorld() != null ? location.getWorld().getName() : "");
@@ -111,26 +109,75 @@ public class DeathBackManager {
             pstmt.setDouble(5, location.getZ());
             pstmt.setFloat(6, location.getYaw());
             pstmt.setFloat(7, location.getPitch());
-            if (safeX != null) {
-                pstmt.setDouble(8, safeX);
-                pstmt.setDouble(9, safeY);
-                pstmt.setDouble(10, safeZ);
-            } else {
-                pstmt.setNull(8, java.sql.Types.REAL);
-                pstmt.setNull(9, java.sql.Types.REAL);
-                pstmt.setNull(10, java.sql.Types.REAL);
-            }
+            pstmt.setNull(8, java.sql.Types.REAL);
+            pstmt.setNull(9, java.sql.Types.REAL);
+            pstmt.setNull(10, java.sql.Types.REAL);
             pstmt.executeUpdate();
         } catch (SQLException e) {
             this.plugin.getLogger().log(Level.SEVERE, "Failed to save death location for " + player.getName(), e);
         }
     }
 
-    // 安全点与死亡点同格时不视为"安全点"（死亡点本身安全，无需另存）
-    private static boolean sameSpot(Location a, Location b) {
-        return a.getBlockX() == b.getBlockX()
-            && a.getBlockY() == b.getBlockY()
-            && a.getBlockZ() == b.getBlockZ();
+    /**
+     * 记录死亡位置并异步搜索安全点：先立刻落库（safe 列空，/back 立即可用），
+     * 搜索在主线程外完成，找到安全点后回到主线程回填，
+     * 避免把大范围方块搜索放在死亡事件的服务器主线程上。
+     */
+    public void saveDeathLocationWithSafePointAsync(Player player, Location location, int radiusH, int radiusV) {
+        saveDeathLocation(player, location);
+        UUID uuid = player.getUniqueId();
+        if (location.getWorld() == null) return;
+
+        CompletableFuture<Void> done = new CompletableFuture<>();
+        pendingSearches.put(uuid, done);
+
+        SafePointFinder.findSafePointAsync(location, radiusH, radiusV).whenComplete((safe, error) -> {
+            if (!this.plugin.isEnabled()) {
+                // 插件已停用：无法再调度主线程任务，直接收尾
+                pendingSearches.remove(uuid, done);
+                done.complete(null);
+                return;
+            }
+            // 回填放回主线程，与主线程上的读/清记录串行化，避免 SQLite 连接并发访问
+            Bukkit.getScheduler().runTask(this.plugin, () -> {
+                try {
+                    if (safe != null) {
+                        updateSafePoint(uuid, safe, location);
+                    }
+                } finally {
+                    pendingSearches.remove(uuid, done);
+                    done.complete(null);
+                }
+            });
+        });
+    }
+
+    // 安全点回填；期间玩家可能再次死亡覆盖记录，仅当记录仍指向本次死亡点时生效
+    private void updateSafePoint(UUID uuid, Location safe, Location origin) {
+        String sql = """
+            UPDATE death_backs SET safe_x = ?, safe_y = ?, safe_z = ?
+            WHERE player_uuid = ? AND world = ? AND x = ? AND y = ? AND z = ?
+            """;
+        try (PreparedStatement pstmt = getConnection().prepareStatement(sql)) {
+            pstmt.setDouble(1, safe.getX());
+            pstmt.setDouble(2, safe.getY());
+            pstmt.setDouble(3, safe.getZ());
+            pstmt.setString(4, uuid.toString());
+            pstmt.setString(5, origin.getWorld() != null ? origin.getWorld().getName() : "");
+            pstmt.setDouble(6, origin.getX());
+            pstmt.setDouble(7, origin.getY());
+            pstmt.setDouble(8, origin.getZ());
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            this.plugin.getLogger().log(Level.SEVERE, "Failed to update safe point for " + uuid, e);
+        }
+    }
+
+    /**
+     * 返回该玩家进行中的安全点搜索（若有）；/back 需等待其完成再读取记录传送。
+     */
+    public CompletableFuture<Void> getPendingSearch(UUID playerUuid) {
+        return pendingSearches.get(playerUuid);
     }
 
     public Optional<DeathRecord> getDeathRecord(UUID playerUuid) {
@@ -169,6 +216,9 @@ public class DeathBackManager {
     }
 
     public synchronized void shutdown() {
+        // 收尾挂起的搜索，避免 /back 的等待回调在插件停用后无处落地
+        pendingSearches.values().forEach(future -> future.complete(null));
+        pendingSearches.clear();
         if (this.connection != null) {
             try {
                 this.connection.close();
