@@ -154,3 +154,4 @@ deathback:
     disabled: <red>死亡返回功能未启用</red>
     no-record: <red>没有可返回的死亡记录</red>
     world-not-loaded: <red>死亡地点所在世界 </red><yellow>{world}</yellow><red> 未加载</red>
+    teleport-failed: <red>传送失败，死亡记录已保留，可再次输入 </red><yellow>/back</yellow><red> 重试</red>

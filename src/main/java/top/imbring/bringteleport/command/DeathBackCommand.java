@@ -128,16 +128,19 @@ public final class DeathBackCommand {
 
             // 记录当前位置以便 /warp tp back undo 撤销；不进历史链，避免污染 back
             plugin.getTeleportHistory().setLastBackSource(player, player.getLocation());
-            manager.clear(uuid);
 
             Map<String, String> placeholders = Map.of(
                 "world", plugin.getLocaleManager().getWorldName(world.getName()),
                 "x", String.format("%.0f", target.getX()),
                 "y", String.format("%.0f", target.getY()),
                 "z", String.format("%.0f", target.getZ()));
+            // 传送成功后才清除记录：失败时保留以便玩家重试
             player.teleportAsync(target).thenAccept(success -> {
                 if (success) {
+                    manager.clear(uuid);
                     player.sendMessage(plugin.getLocaleManager().getMessage("deathback.success", placeholders));
+                } else {
+                    player.sendMessage(getLocaleMessage(plugin, "deathback.error.teleport-failed"));
                 }
             });
             return 1;

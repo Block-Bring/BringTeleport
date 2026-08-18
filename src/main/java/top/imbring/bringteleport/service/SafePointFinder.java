@@ -24,7 +24,7 @@ public final class SafePointFinder {
 
     /**
      * 从 origin 开始寻找最近的安全落脚点，找不到返回 null。
-     * 搜索顺序：先同高度（水平半径递增），再逐层上下交替放宽。
+     * 搜索顺序：先同高度（水平半径递增），再逐层上下交替放宽（先下后上）。
      * 返回的 Location 中心点落在方块内，朝向沿用 origin。
      */
     public static Location findSafePoint(Location origin, int radiusH, int radiusV) {
@@ -39,32 +39,32 @@ public final class SafePointFinder {
         int maxY = world.getMaxHeight() - 1;
 
         for (int v = 0; v <= radiusV; v++) {
-            // 同高度优先（v=0 只一次），之后 +1/-1 交替放宽
+            // 同高度优先（v=0 只一次），之后 -1/+1 交替放宽（先下后上）
             for (int sign : v == 0 ? new int[]{0} : new int[]{-1, 1}) {
                 int y = by + sign * v;
                 if (y < minY || y > maxY) continue;
 
                 for (int r = 0; r <= radiusH; r++) {
                     if (r == 0) {
-                        if (isSafeSpot(world.getBlockAt(bx, y, bz))) {
+                        if (chunkLoaded(world, bx, bz) && isSafeSpot(world.getBlockAt(bx, y, bz))) {
                             return spot(world, bx, y, bz, origin);
                         }
                         continue;
                     }
                     // 半径 r 的方形环，先四边再四角（同一环内顺序不影响"最近"语义）
                     for (int dx = -r; dx <= r; dx++) {
-                        if (isSafeSpot(world.getBlockAt(bx + dx, y, bz - r))) {
+                        if (chunkLoaded(world, bx + dx, bz - r) && isSafeSpot(world.getBlockAt(bx + dx, y, bz - r))) {
                             return spot(world, bx + dx, y, bz - r, origin);
                         }
-                        if (isSafeSpot(world.getBlockAt(bx + dx, y, bz + r))) {
+                        if (chunkLoaded(world, bx + dx, bz + r) && isSafeSpot(world.getBlockAt(bx + dx, y, bz + r))) {
                             return spot(world, bx + dx, y, bz + r, origin);
                         }
                     }
                     for (int dz = -r + 1; dz <= r - 1; dz++) {
-                        if (isSafeSpot(world.getBlockAt(bx - r, y, bz + dz))) {
+                        if (chunkLoaded(world, bx - r, bz + dz) && isSafeSpot(world.getBlockAt(bx - r, y, bz + dz))) {
                             return spot(world, bx - r, y, bz + dz, origin);
                         }
-                        if (isSafeSpot(world.getBlockAt(bx + r, y, bz + dz))) {
+                        if (chunkLoaded(world, bx + r, bz + dz) && isSafeSpot(world.getBlockAt(bx + r, y, bz + dz))) {
                             return spot(world, bx + r, y, bz + dz, origin);
                         }
                     }
@@ -72,6 +72,11 @@ public final class SafePointFinder {
             }
         }
         return null;
+    }
+
+    // 候选格所在区块是否已加载：未加载时 getBlockAt 会强制同步加载区块，跳过以免主线程卡顿
+    private static boolean chunkLoaded(World world, int x, int z) {
+        return world.isChunkLoaded(x >> 4, z >> 4);
     }
 
     // 方块坐标对应的可站位置（玩家中心在方块水平中点，y 为站立格）
