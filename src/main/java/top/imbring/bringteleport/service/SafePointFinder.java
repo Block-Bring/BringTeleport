@@ -34,14 +34,29 @@ public final class SafePointFinder {
     }
 
     /**
-     * 主线程快速判定：origin 所在格是否安全。安全则无需搜索，直接以死亡点为记录。
+     * 主线程快速判定：origin 所在位置是否安全。安全则无需搜索，直接以死亡点为记录。
+     * 玩家碰撞箱为 0.6×0.6（每侧外扩 0.3），可能同时覆盖相邻方块，
+     * 所有被碰撞箱覆盖的方块列都必须安全（避免中心格安全、边缘却是岩浆等被误判）。
      */
     public static boolean isSpotSafe(Location origin) {
         World world = origin.getWorld();
         if (world == null) return false;
-        Block block = origin.getBlock();
-        return isSafeSpot(block.getX(), block.getY(), block.getZ(),
-            (x, y, z) -> world.getBlockAt(x, y, z).getType());
+        double x = origin.getX();
+        double z = origin.getZ();
+        int minX = (int) Math.floor(x - 0.3);
+        int maxX = (int) Math.floor(x + 0.3);
+        int minZ = (int) Math.floor(z - 0.3);
+        int maxZ = (int) Math.floor(z + 0.3);
+        int y = origin.getBlockY();
+        BlockReader reader = (bx, by, bz) -> world.getBlockAt(bx, by, bz).getType();
+        for (int bx = minX; bx <= maxX; bx++) {
+            for (int bz = minZ; bz <= maxZ; bz++) {
+                if (!isSafeSpot(bx, y, bz, reader)) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     /**
@@ -91,12 +106,52 @@ public final class SafePointFinder {
                         // 单区块快照失败，跳过该区块
                     }
                 }
-                return search(world, bx, by, bz, radiusH, radiusV, origin,
+                return searchFor(world, bx, by, bz, radiusH, radiusV, origin,
                     (x, y, z) -> {
                         ChunkSnapshot cs = snapshots.get(key(x >> 4, z >> 4));
                         return cs == null ? null : cs.getBlockType(x & 15, y, z & 15);
                     });
             });
+    }
+
+    // 按死亡场景选择搜索算法：
+    // - 高空坠落（站立格脚下是空气）：垂直优先，先沿同 X、Z 列向下找地面落脚点，
+    //   到地面后再以地面高度水平展开；
+    // - 其他场景：先同高度水平（半径递增），再上下交替放宽（默认）。
+    private static Location searchFor(World world, int bx, int by, int bz,
+                                      int radiusH, int radiusV, Location origin, BlockReader reader) {
+        Material foot = reader.type(bx, by - 1, bz);
+        if (foot != null && foot.isAir()) {
+            return searchVerticalFirst(world, bx, by, bz, radiusH, radiusV, origin, reader);
+        }
+        return search(world, bx, by, bz, radiusH, radiusV, origin, reader);
+    }
+
+    // 垂直优先搜索：高空坠落场景。先沿死亡点所在 X、Z 列垂直向下找第一个安全落脚点；
+    // 向下途中遇到危险方块（岩浆/水等液体）说明已到地面表面，
+    // 立即以该高度为基准做水平优先搜索（同高度，上下交替放宽），不再继续向下。
+    private static Location searchVerticalFirst(World world, int bx, int by, int bz,
+                                                int radiusH, int radiusV, Location origin, BlockReader reader) {
+        int minY = world.getMinHeight();
+        int surfaceY = -1;
+        boolean foundSurface = false;
+        for (int y = by; y >= minY; y--) {
+            if (isSafeSpot(bx, y, bz, reader)) {
+                return spot(world, bx, y, bz, origin);
+            }
+            if (!foundSurface) {
+                Material stand = reader.type(bx, y, bz);
+                if (stand != null && LIQUIDS.contains(stand)) {
+                    // 向下遇到危险方块（岩浆/水等）说明已到地面表面：
+                    // 以该高度水平搜索，不再继续向下
+                    surfaceY = y;
+                    foundSurface = true;
+                    break;
+                }
+            }
+        }
+        if (!foundSurface) return null; // 下方直到世界底都没有地面（虚空），无安全点
+        return search(world, bx, surfaceY, bz, radiusH, radiusV, origin, reader);
     }
 
     // 搜索主逻辑：先同高度（水平半径递增），再逐层上下交替放宽（先下后上）。
