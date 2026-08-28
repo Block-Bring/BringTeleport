@@ -34,6 +34,7 @@ public final class DeathBackCommand {
         static boolean safePointEnabled;
         static int radiusH;
         static int radiusV;
+        static int effort;
 
         private ConfigCache() {}
 
@@ -44,6 +45,7 @@ public final class DeathBackCommand {
             safePointEnabled = config.getBoolean("death-back.safe-point.enabled", true);
             radiusH = Math.max(0, config.getInt("death-back.safe-point.radius-horizontal", 32));
             radiusV = Math.max(0, config.getInt("death-back.safe-point.radius-vertical", 16));
+            effort = Math.max(1, Math.min(3, config.getInt("death-back.safe-point.effort", 2)));
         }
     }
 
@@ -66,7 +68,7 @@ public final class DeathBackCommand {
                     plugin.getDeathBackManager().saveDeathLocation(player, location);
                 } else {
                     plugin.getDeathBackManager().saveDeathLocationWithSafePointAsync(
-                        player, location, ConfigCache.radiusH, ConfigCache.radiusV);
+                        player, location, ConfigCache.radiusH, ConfigCache.radiusV, ConfigCache.effort);
                 }
             }
 
@@ -82,6 +84,7 @@ public final class DeathBackCommand {
         }, plugin);
 
         var backNode = literal("back")
+            .then(literal("confirm").executes(ctx -> executeBackConfirm(ctx, plugin)))
             .executes(ctx -> executeBack(ctx, plugin))
             .build();
         commands.register(backNode, "Return to your last death location", List.of());
@@ -93,57 +96,97 @@ public final class DeathBackCommand {
 
     private static int executeBack(CommandContext<CommandSourceStack> ctx, BringTeleportPlugin plugin) {
         try {
-            CommandSourceStack source = ctx.getSource();
-            if (!(source.getSender() instanceof Player player)) {
-                source.getSender().sendMessage(getLocaleMessage(plugin, "deathback.error.player-only"));
-                return 1;
-            }
-
+            Player player = requirePlayer(plugin, ctx);
+            if (player == null) return 1;
             if (!player.hasPermission(PERMISSION)) {
                 player.sendMessage(getLocaleMessage(plugin, "deathback.error.no-permission"));
                 return 0;
             }
-
             if (!ConfigCache.enabled) {
                 player.sendMessage(getLocaleMessage(plugin, "deathback.error.disabled"));
                 return 1;
             }
-
             UUID uuid = player.getUniqueId();
-            DeathBackManager manager = plugin.getDeathBackManager();
-            Optional<DeathBackManager.DeathRecord> opt = manager.getDeathRecord(uuid);
-            if (opt.isEmpty()) {
-                player.sendMessage(getLocaleMessage(plugin, "deathback.error.no-record"));
-                return 1;
-            }
-
             // 死亡点不安全时，安全点可能还在异步搜索中：等它完成再读取记录传送，
             // 否则会先落回死亡点（如岩浆/海里）再死一次
-            CompletableFuture<Void> pending = manager.getPendingSearch(uuid);
-            if (pending != null) {
-                pending.whenComplete((v, ex) -> {
-                    if (plugin.isEnabled()) {
-                        Bukkit.getScheduler().runTask(plugin, () -> teleportBack(plugin, player, uuid));
-                    }
-                });
-            } else {
-                teleportBack(plugin, player, uuid);
-            }
+            runAfterSearch(plugin, player, uuid, () -> {
+                DeathBackManager.DeathRecord record = readRecordOrWarn(plugin, player);
+                if (record == null) return;
+                if (record.safeX() != null || !record.dangerous()) {
+                    teleportBack(plugin, player, uuid, record, false);
+                } else {
+                    // 未找到安全点且死亡点危险：要求 /back confirm 确认
+                    player.sendMessage(getLocaleMessage(plugin, "deathback.confirm-required"));
+                }
+            });
             return 1;
         } catch (Exception e) {
             return handleError(plugin, ctx, "Failed to execute back command", e);
         }
     }
 
-    // 读取死亡记录并传送（主线程执行）；安全点存在则传安全点，否则传原死亡点
-    private static void teleportBack(BringTeleportPlugin plugin, Player player, UUID uuid) {
-        DeathBackManager manager = plugin.getDeathBackManager();
-        Optional<DeathBackManager.DeathRecord> opt = manager.getDeathRecord(uuid);
+    // /back confirm：确认返回危险死亡点（未找到安全点时强制传死亡点）
+    private static int executeBackConfirm(CommandContext<CommandSourceStack> ctx, BringTeleportPlugin plugin) {
+        try {
+            Player player = requirePlayer(plugin, ctx);
+            if (player == null) return 1;
+            if (!player.hasPermission(PERMISSION)) {
+                player.sendMessage(getLocaleMessage(plugin, "deathback.error.no-permission"));
+                return 0;
+            }
+            if (!ConfigCache.enabled) {
+                player.sendMessage(getLocaleMessage(plugin, "deathback.error.disabled"));
+                return 1;
+            }
+            UUID uuid = player.getUniqueId();
+            runAfterSearch(plugin, player, uuid, () -> {
+                DeathBackManager.DeathRecord record = readRecordOrWarn(plugin, player);
+                if (record == null) return;
+                // 有安全点则传安全点；无安全点（危险或安全死亡点）都传死亡点
+                teleportBack(plugin, player, uuid, record, record.safeX() == null);
+            });
+            return 1;
+        } catch (Exception e) {
+            return handleError(plugin, ctx, "Failed to execute back confirm command", e);
+        }
+    }
+
+    private static Player requirePlayer(BringTeleportPlugin plugin, CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack source = ctx.getSource();
+        if (!(source.getSender() instanceof Player player)) {
+            source.getSender().sendMessage(getLocaleMessage(plugin, "deathback.error.player-only"));
+            return null;
+        }
+        return player;
+    }
+
+    // 等待进行中的安全点搜索完成后在主线程执行 action
+    private static void runAfterSearch(BringTeleportPlugin plugin, Player player, UUID uuid, Runnable action) {
+        CompletableFuture<Void> pending = plugin.getDeathBackManager().getPendingSearch(uuid);
+        if (pending != null) {
+            pending.whenComplete((v, ex) -> {
+                if (plugin.isEnabled()) {
+                    Bukkit.getScheduler().runTask(plugin, action);
+                }
+            });
+        } else {
+            action.run();
+        }
+    }
+
+    private static DeathBackManager.DeathRecord readRecordOrWarn(BringTeleportPlugin plugin, Player player) {
+        Optional<DeathBackManager.DeathRecord> opt =
+            plugin.getDeathBackManager().getDeathRecord(player.getUniqueId());
         if (opt.isEmpty()) {
             player.sendMessage(getLocaleMessage(plugin, "deathback.error.no-record"));
-            return;
+            return null;
         }
-        DeathBackManager.DeathRecord record = opt.get();
+        return opt.get();
+    }
+
+    // 读取死亡记录并传送（主线程执行）；forceDeathPoint=true 时忽略安全点直接传死亡点
+    private static void teleportBack(BringTeleportPlugin plugin, Player player, UUID uuid,
+                                     DeathBackManager.DeathRecord record, boolean forceDeathPoint) {
         World world = Bukkit.getWorld(record.world());
         if (world == null) {
             player.sendMessage(plugin.getLocaleManager().getMessage("deathback.error.world-not-loaded",
@@ -152,7 +195,7 @@ public final class DeathBackCommand {
         }
 
         Location target;
-        if (record.safeX() != null) {
+        if (!forceDeathPoint && record.safeX() != null) {
             target = new Location(world, record.safeX(), record.safeY(), record.safeZ(), record.yaw(), record.pitch());
         } else {
             target = new Location(world, record.x(), record.y(), record.z(), record.yaw(), record.pitch());
@@ -169,7 +212,7 @@ public final class DeathBackCommand {
         // 传送成功后才清除记录：失败时保留以便玩家重试
         player.teleportAsync(target).thenAccept(success -> {
             if (success) {
-                manager.clear(uuid);
+                plugin.getDeathBackManager().clear(uuid);
                 player.sendMessage(plugin.getLocaleManager().getMessage("deathback.success", placeholders));
             } else {
                 player.sendMessage(getLocaleMessage(plugin, "deathback.error.teleport-failed"));

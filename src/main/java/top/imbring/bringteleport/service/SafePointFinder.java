@@ -61,17 +61,36 @@ public final class SafePointFinder {
 
     /**
      * 异步查找最近安全落脚点（找不到则完成值为 null）。
-     * 只对搜索范围内已加载的区块取快照（保持"跳过未加载区块"的语义），
      * 快照不可变、读取线程安全，搜索强制在公共线程池执行，不阻塞主线程。
+     * effort（努力程度，1-3）：
+     * 1 = 只搜已加载区块；2 = 找不到时异步加载范围内未加载区块再搜一轮；
+     * 3 = 标准基础上再把搜索半径扩大一倍。
      */
-    public static CompletableFuture<Location> findSafePointAsync(Location origin, int radiusH, int radiusV) {
+    public static CompletableFuture<Location> findSafePointAsync(Location origin, int radiusH, int radiusV, int effort) {
         World world = origin.getWorld();
         if (world == null) return CompletableFuture.completedFuture(null);
-
         Block center = origin.getBlock();
         int bx = center.getX();
         int by = center.getY();
         int bz = center.getZ();
+
+        CompletableFuture<Location> first = searchArea(world, bx, by, bz, radiusH, radiusV, origin, false);
+        if (effort < 2) return first;
+        return first.thenComposeAsync(safe -> {
+            if (safe != null) return CompletableFuture.completedFuture(safe);
+            CompletableFuture<Location> second = searchArea(world, bx, by, bz, radiusH, radiusV, origin, true);
+            if (effort < 3) return second;
+            return second.thenComposeAsync(safe2 -> {
+                if (safe2 != null) return CompletableFuture.completedFuture(safe2);
+                return searchArea(world, bx, by, bz, radiusH * 2, radiusV * 2, origin, true);
+            });
+        });
+    }
+
+    // 在指定范围内收集区块快照并搜索（forceLoad=true 时未加载区块也会异步加载后再搜）
+    private static CompletableFuture<Location> searchArea(World world, int bx, int by, int bz,
+                                                         int radiusH, int radiusV, Location origin,
+                                                         boolean forceLoad) {
         int minChunkX = (bx - radiusH) >> 4;
         int maxChunkX = (bx + radiusH) >> 4;
         int minChunkZ = (bz - radiusH) >> 4;
@@ -81,8 +100,8 @@ public final class SafePointFinder {
         List<int[]> coords = new ArrayList<>();
         for (int cx = minChunkX; cx <= maxChunkX; cx++) {
             for (int cz = minChunkZ; cz <= maxChunkZ; cz++) {
-                if (!world.isChunkLoaded(cx, cz)) continue;
-                // 1.21.1 无 getChunkSnapshotAsync：先异步取已加载的区块，再在线程池捕获线程安全快照
+                if (!forceLoad && !world.isChunkLoaded(cx, cz)) continue;
+                // 1.21.1 无 getChunkSnapshotAsync：先异步取区块，再在线程池捕获线程安全快照
                 futures.add(world.getChunkAtAsync(cx, cz).thenApplyAsync(Chunk::getChunkSnapshot));
                 coords.add(new int[]{cx, cz});
             }
@@ -125,6 +144,51 @@ public final class SafePointFinder {
             return searchVerticalFirst(world, bx, by, bz, radiusH, radiusV, origin, reader);
         }
         return search(world, bx, by, bz, radiusH, radiusV, origin, reader);
+    }
+
+    /**
+     * 末地虚空兜底（必须在主线程调用）：
+     * 1. 在死亡点同 X、Z 列垂直寻找 Y 0~128 内可站立的方块，找到则返回该落脚点；
+     * 2. 找不到则在同 X、Z 正下方找空旷处，生成以玩家为中心的 3×3 末地石平台并返回平台站位置；
+     * 3. 两者都失败返回 null。
+     */
+    public static Location handleEndVoid(World world, int bx, int bz, Location origin) {
+        BlockReader reader = (x, y, z) -> world.getBlockAt(x, y, z).getType();
+        // 第一步：垂直寻找 Y 0~128 内可站立的方块（从高处向下）
+        for (int y = 128; y >= 0; y--) {
+            if (isSafeSpot(bx, y, bz, reader)) {
+                return spot(world, bx, y, bz, origin);
+            }
+        }
+        // 第二步：同 X、Z 下找空旷处生成 3×3 末地石平台（从高处向下找第一个空旷层）
+        int platformY = findEmptyPlatformY(world, bx, bz);
+        if (platformY < 0) return null;
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dz = -1; dz <= 1; dz++) {
+                world.getBlockAt(bx + dx, platformY, bz + dz).setType(Material.END_STONE);
+            }
+        }
+        return new Location(world, bx + 0.5, platformY + 1, bz + 0.5, origin.getYaw(), origin.getPitch());
+    }
+
+    // 平台层及上方 2 格（站立格+头格）的 3×3 区域全部空旷才视为可生成层
+    private static int findEmptyPlatformY(World world, int bx, int bz) {
+        for (int y = 128; y >= 0; y--) {
+            boolean empty = true;
+            for (int dx = -1; dx <= 1 && empty; dx++) {
+                for (int dz = -1; dz <= 1 && empty; dz++) {
+                    for (int dy = 0; dy <= 2; dy++) {
+                        Material m = world.getBlockAt(bx + dx, y + dy, bz + dz).getType();
+                        if (m.isSolid() || LIQUIDS.contains(m) || FIRE.contains(m)) {
+                            empty = false;
+                            break;
+                        }
+                    }
+                }
+            }
+            if (empty) return y;
+        }
+        return -1;
     }
 
     // 垂直优先搜索：高空坠落场景。先沿死亡点所在 X、Z 列垂直向下找第一个安全落脚点；
