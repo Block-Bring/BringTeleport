@@ -12,5 +12,6 @@ public final class CommandManager {
         BringTeleportCommand.register(commands, plugin);
         WarpCommand.register(commands, plugin);
         DeathBackCommand.register(commands, plugin);
+        TpaCommand.register(commands, plugin);
     }
 }

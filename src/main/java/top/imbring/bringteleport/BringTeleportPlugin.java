@@ -4,6 +4,7 @@ import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import org.bukkit.plugin.java.JavaPlugin;
 import top.imbring.bringteleport.command.CommandManager;
 import top.imbring.bringteleport.command.DeathBackCommand;
+import top.imbring.bringteleport.command.TpaCommand;
 import top.imbring.bringteleport.command.WarpCommand;
 import top.imbring.bringteleport.config.ConfigManager;
 import top.imbring.bringteleport.locale.LocaleManager;
@@ -45,6 +46,7 @@ public final class BringTeleportPlugin extends JavaPlugin {
     @Override
     public void onDisable() {
         WarpCommand.cancelAllCountdowns();
+        TpaCommand.cancelAllCountdowns();
         if (this.deathBackManager != null) {
             this.deathBackManager.shutdown();
         }
@@ -75,6 +77,7 @@ public final class BringTeleportPlugin extends JavaPlugin {
         reloadConfig();
         WarpCommand.refreshConfigCache(this);
         DeathBackCommand.refreshConfigCache(this);
+        TpaCommand.refreshConfigCache(this);
         this.localeManager.reload();
     }
 }
