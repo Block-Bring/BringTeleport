@@ -92,18 +92,18 @@ warp:
       private: 私有
     template: |
 
-      <gold>═════ <green>📋 路径点信息 <gold>═════
-      <gold>🏷️ 名称：<green>{name}
-      <gold>📂 类型：<green>{type}
-      <gold>👤 创建者：<green>{creator}
-      <gold>🕐 创建时间：<green>{date}
-      <gold>🌍 世界：<green>{world}
-      <gold>📍 坐标：<green>{x} {y} {z}
+      <gold>═════ <green> 路径点信息 <gold>═════
+      <gold>名称：<green>{name}
+      <gold>类型：<green>{type}
+      <gold>创建者：<green>{creator}
+      <gold>创建时间：<green>{date}
+      <gold>世界：<green>{world}
+      <gold>坐标：<green>{x} {y} {z}
       {stars_line}
-      <gold>══════════════════
+      <gold>═════════════════
     # {stars_line} 行的内容：仅公有路径点的 info 显示（收藏数），私有路径点自动隐藏此行。
     # 若自定义模板，请把 {stars_line} 放在模板内任意位置并独占一行
-    stars: <gold>⭐ 收藏：<green>{stars}
+    stars: <gold>收藏：<green>{stars}
     not-found: <red>路径点 </red><yellow>{name}</yellow><red> ({type}) 不存在</red>
   star:
     add-success: <green>✔</green> <white>已收藏路径点 </white><yellow>{name}</yellow><white> ({type})</white>
