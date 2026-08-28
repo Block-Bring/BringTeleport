@@ -92,18 +92,18 @@ warp:
       private: 私有
     template: |
 
-      <gold>═════ <green>📋 路径点信息 <gold>═════
-      <gold>🏷️ 名称：<green>{name}
-      <gold>📂 类型：<green>{type}
-      <gold>👤 创建者：<green>{creator}
-      <gold>🕐 创建时间：<green>{date}
-      <gold>🌍 世界：<green>{world}
-      <gold>📍 坐标：<green>{x} {y} {z}
+      <gold>═════ <green> 路径点信息 <gold>═════
+      <gold>名称：<green>{name}
+      <gold>类型：<green>{type}
+      <gold>创建者：<green>{creator}
+      <gold>创建时间：<green>{date}
+      <gold>世界：<green>{world}
+      <gold>坐标：<green>{x} {y} {z}
       {stars_line}
-      <gold>══════════════════
+      <gold>═════════════════
     # {stars_line} 行的内容：仅公有路径点的 info 显示（收藏数），私有路径点自动隐藏此行。
     # 若自定义模板，请把 {stars_line} 放在模板内任意位置并独占一行
-    stars: <gold>⭐ 收藏：<green>{stars}
+    stars: <gold>收藏：<green>{stars}
     not-found: <red>路径点 </red><yellow>{name}</yellow><red> ({type}) 不存在</red>
   star:
     add-success: <green>✔</green> <white>已收藏路径点 </white><yellow>{name}</yellow><white> ({type})</white>
@@ -143,3 +143,78 @@ warp:
     player-required: <red>控制台操作私有路径点需指定玩家名，格式：</red><yellow>/warp <info|delete>
       private <玩家名> <路径点名称></yellow>
     player-not-found: <red>玩家 </red><yellow>{player}</yellow><red> 不存在或从未登录过服务器</red>
+
+# ========== 死亡返回 ==========
+deathback:
+  success: <green>✔</green> <white>已返回死亡地点（</white><yellow>{world} {x}, {y}, {z}</yellow><white>）</white>
+  notify: <white>你可以输入 </white><green>/back</green><white> 返回死亡地点</white>
+  confirm-required: <red>死亡点附近未找到安全落脚点，直接返回可能再次死亡。若仍要返回，请</red> <click:run_command:'/back confirm'><yellow><underlined>点击此处确认</underlined></yellow></click> <red>或输入 </red><yellow>/back confirm</yellow>
+  safe-point-not-found: <red>未能找到安全落脚点，</red><yellow>/back</yellow><red> 返回将需要确认</red>
+  error:
+    no-permission: <red>你没有使用死亡返回的权限</red>
+    player-only: <red>只有玩家才能使用此命令</red>
+    disabled: <red>死亡返回功能未启用</red>
+    no-record: <red>没有可返回的死亡记录</red>
+    world-not-loaded: <red>死亡地点所在世界 </red><yellow>{world}</yellow><red> 未加载</red>
+    teleport-failed: <red>传送失败，死亡记录已保留，可再次输入 </red><yellow>/back</yellow><red> 重试</red>
+
+# ========== 玩家传送 (TPA) ==========
+tpa:
+  help: |
+    <green>═══ <white>玩家传送 (TPA)</white> ═══</green>
+
+    <dark_green>◈ 请求</dark_green>
+    <green>/tpa <玩家名></green>  <white>请求传送到该玩家身边</white>
+    <green>/tpahere <玩家名></green>  <white>请求该玩家传送到你身边</white>
+
+    <dark_green>◈ 回应</dark_green>
+    <green>/tpaccept [玩家名]</green>  <white>接受传送请求</white>
+    <green>/tpadeny [玩家名]</green>  <white>拒绝传送请求</white>
+
+    <dark_green>◈ 其他</dark_green>
+    <green>/tpaback</green>  <white>返回 TPA 传送前的位置</white>
+  request:
+    # 发送成功提示（发送方）
+    sent: <green>✔</green> <white>已向 </white><yellow>{player}</yellow><white> 发送传送请求，等待对方接受</white>
+    here-sent: <green>✔</green> <white>已请求 </white><yellow>{player}</yellow><white> 传送到你身边，等待对方接受</white>
+    # 收到请求提示（接收方），最后一行是点击按钮，文本与命令均可自定义
+    received: |
+
+      <white>玩家 </white><yellow>{player}</yellow><white> 请求传送到你身边</white>
+      <click:run_command:'/tpaccept {player}'><hover:show_text:'<green>接受请求</green>'><green>[接受]</green></hover></click> <click:run_command:'/tpadeny {player}'><hover:show_text:'<red>拒绝请求</red>'><red>[拒绝]</red></hover></click>
+    here-received: |
+
+      <white>玩家 </white><yellow>{player}</yellow><white> 请求你传送到他身边</white>
+      <click:run_command:'/tpaccept {player}'><hover:show_text:'<green>接受请求</green>'><green>[接受]</green></hover></click> <click:run_command:'/tpadeny {player}'><hover:show_text:'<red>拒绝请求</red>'><red>[拒绝]</red></hover></click>
+  accept:
+    # 接受后提示（接受方 / 请求方）
+    success: <green>✔</green> <white>你接受了 </white><yellow>{player}</yellow><white> 的传送请求</white>
+    notify: <green>✔</green> <white>玩家 </white><yellow>{player}</yellow><white> 接受了你的传送请求，正在传送</white>
+    multiple: <red>你有多个传送请求，请指定玩家：</red><yellow>/tpaccept <玩家名></yellow>
+  deny:
+    # 拒绝后提示（拒绝方 / 请求方）
+    success: <green>✔</green> <white>你拒绝了 </white><yellow>{player}</yellow><white> 的传送请求</white>
+    notify: <red>玩家 </red><yellow>{player}</yellow><red> 拒绝了你的传送请求</red>
+    multiple: <red>你有多个传送请求，请指定玩家：</red><yellow>/tpadeny <玩家名></yellow>
+  teleport:
+    countdown:
+      title: <bold><gold>即将传送</gold></bold>
+      subtitle: <yellow>{seconds}</yellow> 秒<green> | </green><white>移动以取消！</white>
+      chat: <white>将在 <yellow>{seconds}</yellow> 秒后传送到 <yellow>{player}</yellow> 身边</white>
+      cancelled: <red>传送已取消！</red>
+    success:
+      title: <green>✔</green> <white>传送完成</white>
+      subtitle: <yellow>{player}</yellow>
+      chat: <green>✔</green> <white>已传送到 </white><yellow>{player}</yellow><white> 身边</white>
+  back:
+    success: <green>✔</green> <white>已返回 TPA 传送前的位置</white>
+    none: <red>没有可返回的 TPA 传送记录</red>
+  error:
+    no-permission: <red>你没有权限执行此命令</red>
+    player-only: <red>只有玩家才能使用此命令</red>
+    player-not-found: <red>玩家 </red><yellow>{player}</yellow><red> 不在线</red>
+    self: <red>不能向自己发送传送请求</red>
+    no-request: <red>没有待处理的传送请求</red>
+    no-request-from: <red>没有来自 </red><yellow>{player}</yellow><red> 的传送请求</red>
+    requester-offline: <red>请求者已离线，无法完成传送</red>
+    teleport-failed: <red>传送失败，请稍后重试</red>

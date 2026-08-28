@@ -35,6 +35,22 @@ permissions:
     description: 收藏路径点
     default: true
 
+  # Death back feature permissions
+  bringteleport.deathback:
+    description: 死亡后返回死亡地点
+    default: true
+
+  # TPA feature permissions
+  bringteleport.tpa.request:
+    description: 发送 TPA 传送请求
+    default: true
+  bringteleport.tpa.accept:
+    description: 接受或拒绝 TPA 传送请求
+    default: true
+  bringteleport.tpa.back:
+    description: 返回 TPA 传送前的位置
+    default: true
+
   # Wildcards
   bringteleport.warp.*:
     description: 所有路径点权限
@@ -47,9 +63,18 @@ permissions:
       bringteleport.warp.rename: true
       bringteleport.warp.tp: true
       bringteleport.warp.star: true
+  bringteleport.tpa.*:
+    description: 所有 TPA 权限
+    default: op
+    children:
+      bringteleport.tpa.request: true
+      bringteleport.tpa.accept: true
+      bringteleport.tpa.back: true
   bringteleport.*:
     description: 所有 BringTeleport 权限
     default: op
     children:
       bringteleport.reload: true
       bringteleport.warp.*: true
+      bringteleport.deathback: true
+      bringteleport.tpa.*: true
