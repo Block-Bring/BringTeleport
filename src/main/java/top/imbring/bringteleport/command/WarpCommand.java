@@ -1342,7 +1342,7 @@ public final class WarpCommand {
     private static void displayCancelMessage(Player player, BringTeleportPlugin plugin, String displayMode) {
         String text = plugin.getLocaleManager().getRaw("warp.tp.countdown.cancelled");
         Component comp = MiniMessage.miniMessage().deserialize(text);
-        Component chatComp = plugin.getLocaleManager().getMessage("warp.tp.countdown.cancelled", null);
+        Component chatComp = plugin.getLocaleManager().getMessage("warp.tp.countdown.cancelled-chat", null);
         sendDisplayMessage(player, comp, comp, chatComp, displayMode);
     }
 

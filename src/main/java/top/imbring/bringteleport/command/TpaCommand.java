@@ -198,7 +198,7 @@ public final class TpaCommand {
                 String displayMode = ConfigCache.cancelDisplayMode;
                 String text = plugin.getLocaleManager().getRaw("tpa.teleport.countdown.cancelled");
                 Component comp = MiniMessage.miniMessage().deserialize(text);
-                Component chatComp = plugin.getLocaleManager().getMessage("tpa.teleport.countdown.cancelled", null);
+                Component chatComp = plugin.getLocaleManager().getMessage("tpa.teleport.countdown.cancelled-chat", null);
                 sendDisplayMessage(player, comp, comp, chatComp, displayMode);
             }
         }, plugin);
