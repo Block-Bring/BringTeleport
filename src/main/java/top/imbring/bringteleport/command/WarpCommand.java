@@ -1063,7 +1063,7 @@ public final class WarpCommand {
                         ACTIVE_COUNTDOWNS.remove(player.getUniqueId());
                         plugin.getTeleportHistory().record(player, playerLoc);
                         player.teleportAsync(targetLoc).thenAccept(success ->
-                            sendTeleportSuccess(player, plugin, wpName));
+                            sendTeleportSuccess(player, plugin, wpName, targetLoc));
                         cancel();
                         return;
                     }
@@ -1105,7 +1105,7 @@ public final class WarpCommand {
 
         plugin.getTeleportHistory().record(player, player.getLocation());
         player.teleportAsync(location).thenAccept(success ->
-            sendTeleportSuccess(player, plugin, warp.getName()));
+            sendTeleportSuccess(player, plugin, warp.getName(), location));
 
         return true;
     }
@@ -1319,7 +1319,8 @@ public final class WarpCommand {
         }
     }
 
-    private static void sendTeleportSuccess(Player player, BringTeleportPlugin plugin, String warpName) {
+    // 传送成功提示；subtitle 默认显示目标坐标
+    private static void sendTeleportSuccess(Player player, BringTeleportPlugin plugin, String warpName, Location target) {
         String displayMode = ConfigCache.successDisplayMode;
 
         boolean soundEnabled = ConfigCache.successSoundEnabled;
@@ -1332,8 +1333,13 @@ public final class WarpCommand {
 
         Component titleComp = MiniMessage.miniMessage().deserialize(
             plugin.getLocaleManager().getRaw("warp.tp.success.title").replace("{name}", escape(warpName)));
-        Component subtitleComp = MiniMessage.miniMessage().deserialize(
-            plugin.getLocaleManager().getRaw("warp.tp.success.subtitle").replace("{name}", escape(warpName)));
+        String subtitleRaw = plugin.getLocaleManager().getRaw("warp.tp.success.subtitle")
+            .replace("{name}", escape(warpName))
+            .replace("{world}", plugin.getLocaleManager().getWorldName(target.getWorld().getName()))
+            .replace("{x}", String.format("%.0f", target.getX()))
+            .replace("{y}", String.format("%.0f", target.getY()))
+            .replace("{z}", String.format("%.0f", target.getZ()));
+        Component subtitleComp = MiniMessage.miniMessage().deserialize(subtitleRaw);
         Component chatComp = plugin.getLocaleManager().getMessage("warp.tp.success.chat",
             Map.of("name", escape(warpName)));
         sendDisplayMessage(player, titleComp, subtitleComp, chatComp, displayMode);
