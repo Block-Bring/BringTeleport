@@ -72,14 +72,22 @@ public final class DeathBackCommand {
                 }
             }
 
-            // 复活后提示可 /back 返回（不清除记录，玩家可能稍后再用）
+            // 复活后提示可 /back 返回（不清除记录，玩家可能稍后再用），并显示实际死亡坐标
             @EventHandler
             public void onPlayerRespawn(PlayerRespawnEvent event) {
                 Player player = event.getPlayer();
                 if (!ConfigCache.enabled || !ConfigCache.notifyOnRespawn
                     || !player.hasPermission(PERMISSION)) return;
-                if (plugin.getDeathBackManager().getDeathRecord(player.getUniqueId()).isEmpty()) return;
-                player.sendMessage(plugin.getLocaleManager().getMessage("deathback.notify", null));
+                Optional<DeathBackManager.DeathRecord> opt =
+                    plugin.getDeathBackManager().getDeathRecord(player.getUniqueId());
+                if (opt.isEmpty()) return;
+                DeathBackManager.DeathRecord record = opt.get();
+                Map<String, String> placeholders = Map.of(
+                    "world", plugin.getLocaleManager().getWorldName(record.world()),
+                    "x", String.format("%.0f", record.x()),
+                    "y", String.format("%.0f", record.y()),
+                    "z", String.format("%.0f", record.z()));
+                player.sendMessage(plugin.getLocaleManager().getMessage("deathback.notify", placeholders));
             }
         }, plugin);
 
@@ -204,16 +212,11 @@ public final class DeathBackCommand {
         // 记录当前位置以便 /warp tp back undo 撤销；不进历史链，避免污染 back
         plugin.getTeleportHistory().setLastBackSource(player, player.getLocation());
 
-        Map<String, String> placeholders = Map.of(
-            "world", plugin.getLocaleManager().getWorldName(world.getName()),
-            "x", String.format("%.0f", target.getX()),
-            "y", String.format("%.0f", target.getY()),
-            "z", String.format("%.0f", target.getZ()));
         // 传送成功后才清除记录：失败时保留以便玩家重试
         player.teleportAsync(target).thenAccept(success -> {
             if (success) {
                 plugin.getDeathBackManager().clear(uuid);
-                player.sendMessage(plugin.getLocaleManager().getMessage("deathback.success", placeholders));
+                player.sendMessage(getLocaleMessage(plugin, "deathback.success"));
             } else {
                 player.sendMessage(getLocaleMessage(plugin, "deathback.error.teleport-failed"));
             }
