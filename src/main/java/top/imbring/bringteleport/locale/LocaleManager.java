@@ -17,8 +17,7 @@ public class LocaleManager {
     private final Map<String, Component> messageCache;
     private final Map<String, String> worldNames = new HashMap<>();
     private YamlConfiguration locale;
-    private boolean prefixEnabled;
-    private Component prefix;
+    private String prefixStr;
 
     public LocaleManager(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -32,9 +31,7 @@ public class LocaleManager {
         this.locale = YamlConfiguration.loadConfiguration(file);
         this.messageCache.clear();
 
-        this.prefixEnabled = plugin.getConfig().getBoolean("prefix-enabled", true);
-        String prefixStr = this.locale.getString("bringteleport.prefix", "");
-        this.prefix = prefixStr.isEmpty() ? null : this.miniMessage.deserialize(prefixStr);
+        this.prefixStr = this.locale.getString("bringteleport.prefix", "");
 
         this.worldNames.clear();
         ConfigurationSection section = this.locale.getConfigurationSection("world-names");
@@ -54,22 +51,28 @@ public class LocaleManager {
     }
 
     public Component getMessage(String path, Map<String, String> placeholders) {
-        // Return cached component for messages without placeholders
-        if (placeholders == null || placeholders.isEmpty()) {
-            Component cached = messageCache.get(path);
-            if (cached != null) {
-                return prefixEnabled && prefix != null
-                    ? prefix.append(Component.space()).append(cached)
-                    : cached;
-            }
-        }
-
         String message = this.locale.getString(path);
         if (message == null) {
             return Component.text("Missing locale: " + path);
         }
 
-        if (placeholders != null) {
+        boolean hasPlaceholders = placeholders != null && !placeholders.isEmpty();
+        // 含 {prefix} 的消息依赖前缀定义，前缀变化后随 reload 重建，不缓存
+        boolean hasPrefixPlaceholder = message.contains("{prefix}");
+
+        // Return cached component for messages without placeholders
+        if (!hasPlaceholders && !hasPrefixPlaceholder) {
+            Component cached = messageCache.get(path);
+            if (cached != null) {
+                return cached;
+            }
+        }
+
+        if (hasPrefixPlaceholder) {
+            message = message.replace("{prefix}", prefixStr);
+        }
+
+        if (hasPlaceholders) {
             for (Map.Entry<String, String> entry : placeholders.entrySet()) {
                 message = message.replace("{" + entry.getKey() + "}", entry.getValue());
             }
@@ -78,18 +81,18 @@ public class LocaleManager {
         Component component = this.miniMessage.deserialize(message);
 
         // Cache only for messages without placeholders
-        if (placeholders == null || placeholders.isEmpty()) {
+        if (!hasPlaceholders && !hasPrefixPlaceholder) {
             messageCache.put(path, component);
-        }
-
-        if (prefixEnabled && prefix != null) {
-            component = prefix.append(Component.space()).append(component);
         }
 
         return component;
     }
 
     public String getRaw(String path) {
-        return this.locale.getString(path, "Missing locale: " + path);
+        String message = this.locale.getString(path, "Missing locale: " + path);
+        if (message.contains("{prefix}")) {
+            message = message.replace("{prefix}", prefixStr);
+        }
+        return message;
     }
 }

@@ -46,12 +46,32 @@ public final class ConfigManager {
             changed = true;
         }
 
+        // v3 迁移：prefix-enabled 开关移除，前缀改为各消息内的 {prefix} 占位符
+        if (fileName.equals("config.yml") && current.contains("prefix-enabled")) {
+            current.set("prefix-enabled", null);
+            changed = true;
+        }
+
         try (InputStream in = plugin.getResource(fileName)) {
             if (in == null) return;
 
             YamlConfiguration defaults = new YamlConfiguration();
             try (Reader reader = new InputStreamReader(in, StandardCharsets.UTF_8)) {
                 defaults.load(reader);
+            }
+
+            if (fileName.equals("locales.yml")) {
+                // v3 迁移：旧消息无前缀，给默认模板含 {prefix} 的键补上前缀占位符（保留用户自定义内容）
+                changed |= addPrefixPlaceholder(current, defaults);
+
+                // v3 迁移：清理历史版本写入消息内容的渲染前缀（如 <aqua>[<green>BringTeleport<aqua>]），
+                // 该键整体替换为默认模板（被污染的旧文案本已过时）
+                String prefixDef = defaults.getString("bringteleport.prefix", "");
+                changed |= cleanupRenderedPrefix(current, defaults, prefixDef);
+
+                // v3 迁移：去除块标量开头的空行。SnakeYAML 保存以空行开头的多行字符串时会
+                // 写成 |2 缩进指示符（合法但难看），新默认模板已无空首行，老文件在此对齐
+                changed |= trimLeadingBlankLines(current, defaults);
             }
 
             // 迁移：移除 {stars_line} 特殊占位符机制，收藏行内联为公有模板的常规行。
@@ -95,6 +115,80 @@ public final class ConfigManager {
         } catch (IOException | org.bukkit.configuration.InvalidConfigurationException e) {
             plugin.getLogger().log(Level.SEVERE, "Failed to migrate " + fileName, e);
         }
+    }
+
+    /**
+     * Prepend {@code {prefix} } to user messages whose default template contains
+     * {@code {prefix}} but the user's copy doesn't yet. Keeps user-customized
+     * content intact. Returns true if any keys were modified.
+     */
+    private static boolean addPrefixPlaceholder(ConfigurationSection target, ConfigurationSection defaults) {
+        boolean changed = false;
+        for (String key : defaults.getKeys(false)) {
+            if (defaults.isConfigurationSection(key) && target.isConfigurationSection(key)) {
+                changed |= addPrefixPlaceholder(
+                    target.getConfigurationSection(key),
+                    defaults.getConfigurationSection(key));
+            } else if (defaults.isString(key) && target.isString(key)) {
+                String def = defaults.getString(key);
+                String cur = target.getString(key);
+                if (def != null && def.contains("{prefix}") && cur != null && !cur.contains("{prefix}")) {
+                    // 内容以换行开头（块标量空首行）时不加空格，避免行尾空格导致 SnakeYAML 改用双引号风格
+                    target.set(key, cur.startsWith("\n") ? "{prefix}" + cur : "{prefix} " + cur);
+                    changed = true;
+                }
+            }
+        }
+        return changed;
+    }
+
+    /**
+     * Replaces user message values that contain the rendered prefix text
+     * (historical versions wrote the rendered prefix into locale content)
+     * with the default template. Returns true if any keys were modified.
+     */
+    private static boolean cleanupRenderedPrefix(ConfigurationSection target, ConfigurationSection defaults, String prefixDef) {
+        boolean changed = false;
+        for (String key : defaults.getKeys(false)) {
+            if (defaults.isConfigurationSection(key) && target.isConfigurationSection(key)) {
+                changed |= cleanupRenderedPrefix(
+                    target.getConfigurationSection(key),
+                    defaults.getConfigurationSection(key),
+                    prefixDef);
+            } else if (defaults.isString(key) && target.isString(key) && !prefixDef.isEmpty()) {
+                String def = defaults.getString(key);
+                String cur = target.getString(key);
+                if (def != null && cur != null && cur.contains(prefixDef)) {
+                    target.set(key, def);
+                    changed = true;
+                }
+            }
+        }
+        return changed;
+    }
+
+    /**
+     * Removes leading blank lines from user message values whose default
+     * template has none, so SnakeYAML won't write them back as {@code |2}
+     * indentation indicators. Returns true if any keys were modified.
+     */
+    private static boolean trimLeadingBlankLines(ConfigurationSection target, ConfigurationSection defaults) {
+        boolean changed = false;
+        for (String key : defaults.getKeys(false)) {
+            if (defaults.isConfigurationSection(key) && target.isConfigurationSection(key)) {
+                changed |= trimLeadingBlankLines(
+                    target.getConfigurationSection(key),
+                    defaults.getConfigurationSection(key));
+            } else if (defaults.isString(key) && target.isString(key)) {
+                String def = defaults.getString(key);
+                String cur = target.getString(key);
+                if (def != null && !def.startsWith("\n") && cur != null && cur.startsWith("\n")) {
+                    target.set(key, cur.replaceFirst("^\n+", ""));
+                    changed = true;
+                }
+            }
+        }
+        return changed;
     }
 
     /**
