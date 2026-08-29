@@ -369,7 +369,7 @@ public final class TpaCommand {
     private static void doTeleport(Player player, Location target, String targetName, BringTeleportPlugin plugin) {
         player.teleportAsync(target).thenAccept(success -> {
             if (success) {
-                sendTeleportSuccess(player, targetName, plugin);
+                sendTeleportSuccess(player, target, targetName, plugin);
             } else {
                 BACK_LOCATIONS.remove(player.getUniqueId());
                 if (player.isOnline()) {
@@ -379,8 +379,8 @@ public final class TpaCommand {
         });
     }
 
-    // 传送成功提示（与 warp 传送成功同款：title/chat 显示 + 音效）
-    private static void sendTeleportSuccess(Player player, String targetName, BringTeleportPlugin plugin) {
+    // 传送成功提示（与 warp 传送成功同款：title/chat 显示 + 音效）；subtitle 默认显示目标坐标
+    private static void sendTeleportSuccess(Player player, Location target, String targetName, BringTeleportPlugin plugin) {
         String displayMode = ConfigCache.successDisplayMode;
 
         if (ConfigCache.successSoundEnabled) {
@@ -390,8 +390,13 @@ public final class TpaCommand {
 
         Component titleComp = MiniMessage.miniMessage().deserialize(
             plugin.getLocaleManager().getRaw("tpa.teleport.success.title").replace("{player}", escape(targetName)));
-        Component subtitleComp = MiniMessage.miniMessage().deserialize(
-            plugin.getLocaleManager().getRaw("tpa.teleport.success.subtitle").replace("{player}", escape(targetName)));
+        String subtitleRaw = plugin.getLocaleManager().getRaw("tpa.teleport.success.subtitle")
+            .replace("{player}", escape(targetName))
+            .replace("{world}", plugin.getLocaleManager().getWorldName(target.getWorld().getName()))
+            .replace("{x}", String.format("%.0f", target.getX()))
+            .replace("{y}", String.format("%.0f", target.getY()))
+            .replace("{z}", String.format("%.0f", target.getZ()));
+        Component subtitleComp = MiniMessage.miniMessage().deserialize(subtitleRaw);
         Component chatComp = plugin.getLocaleManager().getMessage("tpa.teleport.success.chat",
             Map.of("player", escape(targetName)));
         sendDisplayMessage(player, titleComp, subtitleComp, chatComp, displayMode);

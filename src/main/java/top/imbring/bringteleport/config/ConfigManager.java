@@ -65,6 +65,17 @@ public final class ConfigManager {
                 }
             }
 
+            // v0.8.0 迁移：warp 传送成功 subtitle 新增坐标占位符（{world} {x} {y} {z}），
+            // 旧模板缺失 {world} 则替换为默认模板（tpa 为新增段，默认即新模板）
+            if (fileName.equals("locales.yml") && current.contains("warp.tp.success.subtitle")
+                && defaults.contains("warp.tp.success.subtitle")) {
+                String subtitle = current.getString("warp.tp.success.subtitle");
+                if (subtitle != null && !subtitle.contains("{world}")) {
+                    current.set("warp.tp.success.subtitle", defaults.getString("warp.tp.success.subtitle"));
+                    changed = true;
+                }
+            }
+
             if (mergeMissing(current, defaults) || changed) {
                 current.save(file);
                 plugin.getLogger().info("Migrated " + fileName + " — added missing keys");

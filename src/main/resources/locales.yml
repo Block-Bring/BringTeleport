@@ -125,7 +125,8 @@ warp:
       cancelled: <red>传送已取消！</red>
     success:
       title: <green>✔</green> <white>传送完成</white>
-      subtitle: <yellow>{name}</yellow>
+      # {world} {x} {y} {z} 为目标位置坐标，{name} 为路径点名称
+      subtitle: <yellow>{world}</yellow> <gray>|</gray> <green>{x} {y} {z}</green>
       chat: <green>✔</green> <white>已传送到路径点 </white><yellow>{name}</yellow>
     not-found: <red>路径点 </red><yellow>{name}</yellow><red> ({type}) 不存在</red>
     world-not-loaded: <red>路径点所在世界 </red><yellow>{world}</yellow><red> 未加载</red>
@@ -204,7 +205,8 @@ tpa:
       cancelled: <red>传送已取消！</red>
     success:
       title: <green>✔</green> <white>传送完成</white>
-      subtitle: <yellow>{player}</yellow>
+      # {world} {x} {y} {z} 为目标位置坐标，{player} 为目标玩家名
+      subtitle: <yellow>{world}</yellow> <gray>|</gray> <green>{x} {y} {z}</green>
       chat: <green>✔</green> <white>已传送到 </white><yellow>{player}</yellow><white> 身边</white>
   back:
     success: <green>✔</green> <white>已返回 TPA 传送前的位置</white>
