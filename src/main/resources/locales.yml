@@ -1,6 +1,6 @@
 # ========== 插件 ==========
 bringteleport:
-  prefix: <aqua>[<green>BringTeleport<aqua>]
+  prefix: "<aqua>[<green>BringTeleport<aqua>]"
   help: |
     <green>═══ <white>BringTeleport</white> ═══</green>
 
@@ -8,15 +8,15 @@ bringteleport:
     <green>/bringteleport reload</green>  <white>重载配置文件</white>
     <green>/bringteleport help</green>  <white>显示此帮助</white>
   reload:
-    success: <green>✔</green> <white>配置文件已重载</white>
+    success: "<green>✔</green> <white>配置文件已重载</white>"
 
 # ========== 世界显示名 ==========
 # 路径点信息中显示的世界名，可自由添加任意世界的映射（兼容多世界插件）
 # 如果有新世界直接在 world_the_end 下一行开始即可
 world-names:
-  world: <green>主世界</green>
-  world_nether: <red>下界</red>
-  world_the_end: <yellow>末地</yellow>
+  world: "<green>主世界</green>"
+  world_nether: "<red>下界</red>"
+  world_the_end: "<yellow>末地</yellow>"
 
 # ========== 路径点 ==========
 warp:
@@ -58,21 +58,21 @@ warp:
       <white>玩家 </white><yellow>{player}</yellow><white> 分享了一个路径点 </white><yellow>{name}</yellow><white>！</white>
       <white>来自 </white>{world}<white> 的 </white><green>{x} {y} {z}</green>
       <click:run_command:'/warp tp public {name}'><hover:show_text:'<green>点击传送到</green> <yellow>{name}</yellow>'><gold>[单击此处传送]</gold></hover></click>
-    duplicate-public: <red>公有路径点 </red><yellow>{name}</yellow><red> 已存在</red>
-    duplicate-private: <red>你的私有路径点 </red><yellow>{name}</yellow><red> 已存在</red>
-    fail: <red>路径点创建失败，名称可能已存在</red>
+    duplicate-public: "<red>公有路径点 </red><yellow>{name}</yellow><red> 已存在</red>"
+    duplicate-private: "<red>你的私有路径点 </red><yellow>{name}</yellow><red> 已存在</red>"
+    fail: "<red>路径点创建失败，名称可能已存在</red>"
   delete:
     success: <green>✔</green> <white>路径点 </white><yellow>{name}</yellow><white> ({type})
       已删除</white>
-    not-found: <red>路径点 </red><yellow>{name}</yellow><red> ({type}) 不存在</red>
-    not-owner: <red>你不能删除其他玩家创建的公有路径点</red>
+    not-found: "<red>路径点 </red><yellow>{name}</yellow><red> ({type}) 不存在</red>"
+    not-owner: "<red>你不能删除其他玩家创建的公有路径点</red>"
     confirm-required: | 
       
       <gold>⚠</gold> <white>确认删除路径点 </white><yellow>{name}</yellow><white>？</white>
       <white>请在 </white><yellow>{timeout}</yellow><white> 秒内确认！</white>
       <click:run_command:'/warp confirm'><hover:show_text:'<red>这将永久失去！真的很久！</red>'><red>[确认]</red></hover></click>
-    confirm-none: <red>没有待确认的删除操作</red>
-    confirm-expired: <red>待确认的删除操作已过期（{timeout} 秒），请重新输入删除命令</red>
+    confirm-none: "<red>没有待确认的删除操作</red>"
+    confirm-expired: "<red>待确认的删除操作已过期（{timeout} 秒），请重新输入删除命令</red>"
     confirm-success: <green>✔</green> <white>路径点 </white><yellow>{name}</yellow><white>
       已确认删除</white>
   rename:
@@ -80,16 +80,17 @@ warp:
       秒内于聊天框输入新名字</gold>
     success: <green>✔</green> <white>路径点 </white><yellow>{name}</yellow><white> 已重命名为
       </white><yellow>{newName}</yellow>
-    not-found: <red>路径点 </red><yellow>{name}</yellow><red> ({type}) 不存在</red>
-    not-owner: <red>你不能重命名其他玩家创建的公有路径点</red>
-    duplicate: <red>新名字 </red><yellow>{newName}</yellow><red> 已存在</red>
-    expired: <red>重命名请求已过期，请重新执行 /warp rename</red>
+    not-found: "<red>路径点 </red><yellow>{name}</yellow><red> ({type}) 不存在</red>"
+    not-owner: "<red>你不能重命名其他玩家创建的公有路径点</red>"
+    duplicate: "<red>新名字 </red><yellow>{newName}</yellow><red> 已存在</red>"
+    expired: "<red>重命名请求已过期，请重新执行 /warp rename</red>"
     usage: <red>格式：</red><yellow>/warp rename public <名字> <新名字></yellow><red>
       或 </red><yellow>/warp rename private <玩家名> <名字> <新名字></yellow>
   info:
     type:
-      public: 公有
-      private: 私有
+      public: "公有"
+      private: "私有"
+    # 公有路径点信息模板（含收藏数行）
     template: |
 
       <gold>═════ <green> 路径点信息 <gold>═════
@@ -99,67 +100,75 @@ warp:
       <gold>创建时间：<green>{date}
       <gold>世界：<green>{world}
       <gold>坐标：<green>{x} {y} {z}
-      {stars_line}
+      <gold>收藏：<green>{stars}
       <gold>═════════════════
-    # {stars_line} 行的内容：仅公有路径点的 info 显示（收藏数），私有路径点自动隐藏此行。
-    # 若自定义模板，请把 {stars_line} 放在模板内任意位置并独占一行
-    stars: <gold>收藏：<green>{stars}
-    not-found: <red>路径点 </red><yellow>{name}</yellow><red> ({type}) 不存在</red>
+    # 私有路径点信息模板（不含收藏数行）
+    template-private: |
+
+      <gold>═════ <green> 路径点信息 <gold>═════
+      <gold>名称：<green>{name}
+      <gold>类型：<green>{type}
+      <gold>创建者：<green>{creator}
+      <gold>创建时间：<green>{date}
+      <gold>世界：<green>{world}
+      <gold>坐标：<green>{x} {y} {z}
+      <gold>═════════════════
+    not-found: "<red>路径点 </red><yellow>{name}</yellow><red> ({type}) 不存在</red>"
   star:
-    add-success: <green>✔</green> <white>已收藏路径点 </white><yellow>{name}</yellow><white> ({type})</white>
-    add-duplicate: <red>路径点 </red><yellow>{name}</yellow><red> ({type}) 已在你的收藏中</red>
-    add-not-found: <red>路径点 </red><yellow>{name}</yellow><red> ({type}) 不存在</red>
-    remove-success: <green>✔</green> <white>已取消收藏路径点 </white><yellow>{name}</yellow><white> ({type})</white>
-    remove-not-starred: <red>路径点 </red><yellow>{name}</yellow><red> ({type}) 不在你的收藏中</red>
-    remove-not-found: <red>路径点 </red><yellow>{name}</yellow><red> ({type}) 不存在</red>
-    list-empty: <red>你还没有收藏任何路径点</red>
+    add-success: "<green>✔</green> <white>已收藏路径点 </white><yellow>{name}</yellow><white> ({type})</white>"
+    add-duplicate: "<red>路径点 </red><yellow>{name}</yellow><red> ({type}) 已在你的收藏中</red>"
+    add-not-found: "<red>路径点 </red><yellow>{name}</yellow><red> ({type}) 不存在</red>"
+    remove-success: "<green>✔</green> <white>已取消收藏路径点 </white><yellow>{name}</yellow><white> ({type})</white>"
+    remove-not-starred: "<red>路径点 </red><yellow>{name}</yellow><red> ({type}) 不在你的收藏中</red>"
+    remove-not-found: "<red>路径点 </red><yellow>{name}</yellow><red> ({type}) 不存在</red>"
+    list-empty: "<red>你还没有收藏任何路径点</red>"
     list-header: |
 
       <gold>═══ <white>我的收藏</white> <gold>═══
-    list-item: <white>· </white><yellow>{name}</yellow> <gray>({type})</gray> <dark_gray>{world} {x} {y} {z}</dark_gray>
+    list-item: "<white>· </white><yellow>{name}</yellow> <gray>({type})</gray> <dark_gray>{world} {x} {y} {z}</dark_gray>"
   tp:
     countdown:
-      title: <bold><gold>即将传送</gold></bold>
-      subtitle: <yellow>{seconds}</yellow> 秒<green> | </green><white>移动以取消！</white>
-      chat: <white>将在 <yellow>{seconds}</yellow> 秒后传送</white>
-      cancelled: <red>传送已取消！</red>
+      title: "<bold><gold>即将传送</gold></bold>"
+      subtitle: "<yellow>{seconds}</yellow> 秒<green> | </green><white>移动以取消！</white>"
+      chat: "<white>将在 <yellow>{seconds}</yellow> 秒后传送</white>"
+      cancelled: "<red>传送已取消！</red>"
     success:
-      title: <green>✔</green> <white>传送完成</white>
+      title: "<green>✔</green> <white>传送完成</white>"
       # {world} {x} {y} {z} 为目标位置坐标，{name} 为路径点名称
-      subtitle: <yellow>{world}</yellow> <gray>|</gray> <green>{x} {y} {z}</green>
-      chat: <green>✔</green> <white>已传送到路径点 </white><yellow>{name}</yellow>
-    not-found: <red>路径点 </red><yellow>{name}</yellow><red> ({type}) 不存在</red>
-    world-not-loaded: <red>路径点所在世界 </red><yellow>{world}</yellow><red> 未加载</red>
+      subtitle: "<yellow>{world}</yellow> <gray>|</gray> <green>{x} {y} {z}</green>"
+      chat: "<green>✔</green> <white>已传送到路径点 </white><yellow>{name}</yellow>"
+    not-found: "<red>路径点 </red><yellow>{name}</yellow><red> ({type}) 不存在</red>"
+    world-not-loaded: "<red>路径点所在世界 </red><yellow>{world}</yellow><red> 未加载</red>"
     back:
-      success: <green>✔</green> <white>已返回 {steps} 次传送前的位置</white>
-      no-history: <red>你还没有进行过传送</red>
-      steps-exceed: <red>传送历史最多可回溯 {available} 步，无法回溯 {steps} 步</red>
-      undo-none: <red>没有可撤销的 back 操作</red>
-      undo-success: <green>✔</green> <white>已撤销 back，回到传送前的位置</white>
+      success: "<green>✔</green> <white>已返回 {steps} 次传送前的位置</white>"
+      no-history: "<red>你还没有进行过传送</red>"
+      steps-exceed: "<red>传送历史最多可回溯 {available} 步，无法回溯 {steps} 步</red>"
+      undo-none: "<red>没有可撤销的 back 操作</red>"
+      undo-success: "<green>✔</green> <white>已撤销 back，回到传送前的位置</white>"
   error:
-    player-only: <red>只有玩家才能使用此命令</red>
-    name-required: <red>请输入有效的路径点名称</red>
-    name-too-long: <red>路径点名称不能超过 32 个字符</red>
-    no-permission: <red>你没有权限执行此命令</red>
+    player-only: "<red>只有玩家才能使用此命令</red>"
+    name-required: "<red>请输入有效的路径点名称</red>"
+    name-too-long: "<red>路径点名称不能超过 32 个字符</red>"
+    no-permission: "<red>你没有权限执行此命令</red>"
     player-required: <red>控制台操作私有路径点需指定玩家名，格式：</red><yellow>/warp <info|delete>
       private <玩家名> <路径点名称></yellow>
-    player-not-found: <red>玩家 </red><yellow>{player}</yellow><red> 不存在或从未登录过服务器</red>
+    player-not-found: "<red>玩家 </red><yellow>{player}</yellow><red> 不存在或从未登录过服务器</red>"
 
 # ========== 死亡返回 ==========
 deathback:
-  success: <green>✔</green> <white>已返回死亡地点</white>
+  success: "<green>✔</green> <white>已返回死亡地点</white>"
   notify: |
     <white>要传送到你这次游玩的死亡地点，请使用 <green>/back</green></white>
     <white>你的死亡地点是：{world} | <green>X:{x} Y:{y} Z:{z}</green>！
-  confirm-required: <red>死亡点附近未找到安全落脚点，直接返回可能再次死亡。若仍要返回，请</red> <click:run_command:'/back confirm'><yellow><underlined>点击此处确认</underlined></yellow></click> <red>或输入 </red><yellow>/back confirm</yellow>
-  safe-point-not-found: <red>未能找到安全落脚点，</red><yellow>/back</yellow><red> 返回将需要确认</red>
+  confirm-required: "<red>死亡点附近未找到安全落脚点，直接返回可能再次死亡。若仍要返回，请</red> <click:run_command:'/back confirm'><yellow><underlined>点击此处确认</underlined></yellow></click> <red>或输入 </red><yellow>/back confirm</yellow>"
+  safe-point-not-found: "<red>未能找到安全落脚点，</red><yellow>/back</yellow><red> 返回将需要确认</red>"
   error:
-    no-permission: <red>你没有使用死亡返回的权限</red>
-    player-only: <red>只有玩家才能使用此命令</red>
-    disabled: <red>死亡返回功能未启用</red>
-    no-record: <red>没有可返回的死亡记录</red>
-    world-not-loaded: <red>死亡地点所在世界 </red><yellow>{world}</yellow><red> 未加载</red>
-    teleport-failed: <red>传送失败，死亡记录已保留，可再次输入 </red><yellow>/back</yellow><red> 重试</red>
+    no-permission: "<red>你没有使用死亡返回的权限</red>"
+    player-only: "<red>只有玩家才能使用此命令</red>"
+    disabled: "<red>死亡返回功能未启用</red>"
+    no-record: "<red>没有可返回的死亡记录</red>"
+    world-not-loaded: "<red>死亡地点所在世界 </red><yellow>{world}</yellow><red> 未加载</red>"
+    teleport-failed: "<red>传送失败，死亡记录已保留，可再次输入 </red><yellow>/back</yellow><red> 重试</red>"
 
 # ========== 玩家传送 (TPA) ==========
 tpa:
@@ -178,8 +187,8 @@ tpa:
     <green>/tpaback</green>  <white>返回 TPA 传送前的位置</white>
   request:
     # 发送成功提示（发送方）
-    sent: <green>✔</green> <white>已向 </white><yellow>{player}</yellow><white> 发送传送请求，等待对方接受</white>
-    here-sent: <green>✔</green> <white>已请求 </white><yellow>{player}</yellow><white> 传送到你身边，等待对方接受</white>
+    sent: "<green>✔</green> <white>已向 </white><yellow>{player}</yellow><white> 发送传送请求，等待对方接受</white>"
+    here-sent: "<green>✔</green> <white>已请求 </white><yellow>{player}</yellow><white> 传送到你身边，等待对方接受</white>"
     # 收到请求提示（接收方），最后一行是点击按钮，文本与命令均可自定义
     received: |
 
@@ -191,34 +200,35 @@ tpa:
       <click:run_command:'/tpaccept {player}'><hover:show_text:'<green>接受请求</green>'><green>[接受]</green></hover></click> <click:run_command:'/tpadeny {player}'><hover:show_text:'<red>拒绝请求</red>'><red>[拒绝]</red></hover></click>
   accept:
     # 接受后提示（接受方 / 请求方）
-    success: <green>✔</green> <white>你接受了 </white><yellow>{player}</yellow><white> 的传送请求</white>
-    notify: <green>✔</green> <white>玩家 </white><yellow>{player}</yellow><white> 接受了你的传送请求，正在传送</white>
-    multiple: <red>你有多个传送请求，请指定玩家：</red><yellow>/tpaccept <玩家名></yellow>
+    success: "<green>✔</green> <white>你接受了 </white><yellow>{player}</yellow><white> 的传送请求</white>"
+    notify: "<green>✔</green> <white>玩家 </white><yellow>{player}</yellow><white> 接受了你的传送请求，正在传送</white>"
+    multiple: "<red>你有多个传送请求，请指定玩家：</red><yellow>/tpaccept <玩家名></yellow>"
   deny:
     # 拒绝后提示（拒绝方 / 请求方）
-    success: <green>✔</green> <white>你拒绝了 </white><yellow>{player}</yellow><white> 的传送请求</white>
-    notify: <red>玩家 </red><yellow>{player}</yellow><red> 拒绝了你的传送请求</red>
-    multiple: <red>你有多个传送请求，请指定玩家：</red><yellow>/tpadeny <玩家名></yellow>
+    success: "<green>✔</green> <white>你拒绝了 </white><yellow>{player}</yellow><white> 的传送请求</white>"
+    notify: "<red>玩家 </red><yellow>{player}</yellow><red> 拒绝了你的传送请求</red>"
+    multiple: "<red>你有多个传送请求，请指定玩家：</red><yellow>/tpadeny <玩家名></yellow>"
   teleport:
     countdown:
-      title: <bold><gold>即将传送</gold></bold>
-      subtitle: <yellow>{seconds}</yellow> 秒<green> | </green><white>移动以取消！</white>
-      chat: <white>将在 <yellow>{seconds}</yellow> 秒后传送到 <yellow>{player}</yellow> 身边</white>
-      cancelled: <red>传送已取消！</red>
+      title: "<bold><gold>即将传送</gold></bold>"
+      subtitle: "<yellow>{seconds}</yellow> 秒<green> | </green><white>移动以取消！</white>"
+      chat: "<white>将在 <yellow>{seconds}</yellow> 秒后传送到 <yellow>{player}</yellow> 身边</white>"
+      cancelled: "<red>传送已取消！</red>"
     success:
-      title: <green>✔</green> <white>传送完成</white>
+      title: "<green>✔</green> <white>传送完成</white>"
       # {world} {x} {y} {z} 为目标位置坐标，{player} 为目标玩家名
-      subtitle: <yellow>{world}</yellow> <gray>|</gray> <green>{x} {y} {z}</green>
-      chat: <green>✔</green> <white>已传送到 </white><yellow>{player}</yellow><white> 身边</white>
+      subtitle: "<yellow>{world}</yellow> <gray>|</gray> <green>{x} {y} {z}</green>"
+      chat: "<green>✔</green> <white>已传送到 </white><yellow>{player}</yellow><white> 身边</white>"
   back:
-    success: <green>✔</green> <white>已返回 TPA 传送前的位置</white>
-    none: <red>没有可返回的 TPA 传送记录</red>
+    success: "<green>✔</green> <white>已返回 TPA 传送前的位置</white>"
+    none: "<red>没有可返回的 TPA 传送记录</red>"
   error:
-    no-permission: <red>你没有权限执行此命令</red>
-    player-only: <red>只有玩家才能使用此命令</red>
-    player-not-found: <red>玩家 </red><yellow>{player}</yellow><red> 不在线</red>
-    self: <red>不能向自己发送传送请求</red>
-    no-request: <red>没有待处理的传送请求</red>
-    no-request-from: <red>没有来自 </red><yellow>{player}</yellow><red> 的传送请求</red>
-    requester-offline: <red>请求者已离线，无法完成传送</red>
-    teleport-failed: <red>传送失败，请稍后重试</red>
+    no-permission: "<red>你没有权限执行此命令</red>"
+    player-only: "<red>只有玩家才能使用此命令</red>"
+    player-not-found: "<red>玩家 </red><yellow>{player}</yellow><red> 不在线</red>"
+    self: "<red>不能向自己发送传送请求</red>"
+    no-request: "<red>没有待处理的传送请求</red>"
+    no-request-from: "<red>没有来自 </red><yellow>{player}</yellow><red> 的传送请求</red>"
+    requester-offline: "<red>请求者已离线，无法完成传送</red>"
+    teleport-failed: "<red>传送失败，请稍后重试</red>"
+

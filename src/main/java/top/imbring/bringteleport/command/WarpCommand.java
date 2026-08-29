@@ -930,19 +930,13 @@ public final class WarpCommand {
             placeholders.put("type", typeLabel);
             placeholders.put("creator", escape(creatorName));
             placeholders.put("date", formattedDate);
+            placeholders.put("stars", String.valueOf(manager.getStarCount(warp.getId())));
 
-            String info = plugin.getLocaleManager().getRaw("warp.info.template");
+            // 公有/私有模板各自独立，收藏行仅存在于公有模板中
+            String templateKey = type == WarpType.PUBLIC ? "warp.info.template" : "warp.info.template-private";
+            String info = plugin.getLocaleManager().getRaw(templateKey);
             for (Map.Entry<String, String> entry : placeholders.entrySet()) {
                 info = info.replace("{" + entry.getKey() + "}", entry.getValue());
-            }
-
-            // 收藏数占位符 {stars_line} 位于模板内部（默认在坐标行后、底线前）：
-            // 公有路径点显示收藏数，私有路径点删除整行
-            if (type == WarpType.PUBLIC) {
-                info = info.replace("{stars_line}", plugin.getLocaleManager().getRaw("warp.info.stars")
-                    .replace("{stars}", String.valueOf(manager.getStarCount(warp.getId()))));
-            } else {
-                info = info.replace("\n{stars_line}", "");
             }
 
             sender.sendMessage(MiniMessage.miniMessage().deserialize(info));

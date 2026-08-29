@@ -54,15 +54,20 @@ public final class ConfigManager {
                 defaults.load(reader);
             }
 
-            // v0.7.1 迁移：info 模板新增 {stars_line} 占位符行（收藏数移入框内），
-            // 旧模板缺失该占位符则整段替换为默认模板
+            // 迁移：移除 {stars_line} 特殊占位符机制，收藏行内联为公有模板的常规行。
+            // 旧模板含 {stars_line}（或仍引用旧 stars 键）则整段替换为新默认公有模板，
+            // 并清理已废弃的 warp.info.stars 键
             if (fileName.equals("locales.yml") && current.contains("warp.info.template")
                 && defaults.contains("warp.info.template")) {
                 String template = current.getString("warp.info.template");
-                if (template != null && !template.contains("{stars_line}")) {
+                if (template != null && template.contains("{stars_line}")) {
                     current.set("warp.info.template", defaults.getString("warp.info.template"));
                     changed = true;
                 }
+            }
+            if (fileName.equals("locales.yml") && current.contains("warp.info.stars")) {
+                current.set("warp.info.stars", null);
+                changed = true;
             }
 
             // v0.8.0 迁移：warp 传送成功 subtitle 新增坐标占位符（{world} {x} {y} {z}），
