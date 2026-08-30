@@ -1,8 +1,6 @@
 package top.imbring.bringteleport.command;
 
 import com.mojang.brigadier.context.CommandContext;
-import com.mojang.brigadier.context.StringRange;
-import com.mojang.brigadier.suggestion.Suggestion;
 import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
@@ -26,6 +24,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -569,42 +568,34 @@ public final class TpaCommand {
         return null;
     }
 
-    // 建议在线玩家名（排除自己）
+    // 建议在线玩家名（排除自己），忽略大小写前缀匹配
     private static CompletableFuture<Suggestions> suggestOnlinePlayers(CommandSourceStack source, SuggestionsBuilder builder) {
         Player self = source.getSender() instanceof Player player ? player : null;
-        List<String> names = new ArrayList<>();
+        String typed = builder.getRemaining().toLowerCase(Locale.ROOT);
         for (Player online : Bukkit.getOnlinePlayers()) {
             if (self != null && online.getUniqueId().equals(self.getUniqueId())) continue;
-            names.add(online.getName());
+            if (online.getName().toLowerCase(Locale.ROOT).startsWith(typed)) {
+                builder.suggest(online.getName());
+            }
         }
-        return suggestTokens(builder, names);
+        return builder.buildFuture();
     }
 
-    // 建议当前玩家收到的未过期请求的发送者名
+    // 建议当前玩家收到的未过期请求的发送者名，忽略大小写前缀匹配
     private static CompletableFuture<Suggestions> suggestRequesters(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder builder) {
         if (!(ctx.getSource().getSender() instanceof Player player)) {
             return builder.buildFuture();
         }
-        List<String> names = validRequests(player.getUniqueId()).stream()
+        String typed = builder.getRemaining().toLowerCase(Locale.ROOT);
+        for (String name : validRequests(player.getUniqueId()).stream()
             .map(PendingRequest::requesterName)
             .distinct()
-            .toList();
-        return suggestTokens(builder, names);
-    }
-
-    // 建议候选列表，替换范围仅覆盖当前正在输入的最后一个 token，避免覆盖已输入部分
-    private static CompletableFuture<Suggestions> suggestTokens(SuggestionsBuilder builder, List<String> candidates) {
-        String typed = builder.getRemaining();
-        String prefix = typed.substring(typed.lastIndexOf(' ') + 1);
-        StringRange range = StringRange.between(builder.getStart() + typed.lastIndexOf(' ') + 1, builder.getInput().length());
-        List<Suggestion> suggestions = candidates.stream()
-            .filter(name -> name.startsWith(prefix))
-            .map(name -> new Suggestion(range, name))
-            .toList();
-        if (suggestions.isEmpty()) {
-            return Suggestions.empty();
+            .toList()) {
+            if (name.toLowerCase(Locale.ROOT).startsWith(typed)) {
+                builder.suggest(name);
+            }
         }
-        return CompletableFuture.completedFuture(new Suggestions(range, suggestions));
+        return builder.buildFuture();
     }
 
     // 转义玩家输入中的 MiniMessage 特殊字符，防止注入标签或破坏 click 参数引号
