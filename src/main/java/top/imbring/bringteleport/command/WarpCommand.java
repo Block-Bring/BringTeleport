@@ -734,7 +734,7 @@ public final class WarpCommand {
                         && System.currentTimeMillis() - entry.getValue().timestamp() > (long) (timeoutSec * 1000));
                 PENDING_DELETIONS.put(player.getUniqueId(), new PendingDeletion(name, type, System.currentTimeMillis()));
                 player.sendMessage(plugin.getLocaleManager().getMessage("warp.delete.confirm-required",
-                    Map.of("name", escape(name), "timeout", String.valueOf(timeoutSec))));
+                    Map.of("name", escape(name), "timeout", formatSeconds(timeoutSec))));
                 return 1;
             }
 
@@ -778,7 +778,7 @@ public final class WarpCommand {
 
             if (System.currentTimeMillis() - pending.timestamp > timeoutMs) {
                 player.sendMessage(plugin.getLocaleManager().getMessage("warp.delete.confirm-expired",
-                    Map.of("timeout", String.valueOf(timeoutSec))));
+                    Map.of("timeout", formatSeconds(timeoutSec))));
                 return 1;
             }
 
@@ -1396,6 +1396,11 @@ public final class WarpCommand {
     private static String getTypeLabel(BringTeleportPlugin plugin, WarpType type) {
         String key = type == WarpType.PUBLIC ? "warp.info.type.public" : "warp.info.type.private";
         return plugin.getLocaleManager().getRaw(key);
+    }
+
+    // 配置中的秒数是 double，整数时省略小数点（10.0 显示为 10），否则保留原值
+    private static String formatSeconds(double seconds) {
+        return seconds == Math.floor(seconds) ? String.valueOf((long) seconds) : String.valueOf(seconds);
     }
 
     // ===== A3: Unified display message =====
