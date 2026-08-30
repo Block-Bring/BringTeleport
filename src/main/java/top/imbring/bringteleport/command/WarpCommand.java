@@ -250,6 +250,49 @@ public final class WarpCommand {
         return suggestTokens(builder, warps.stream().map(Warp::getName).toList());
     }
 
+    // star add 补全：只显示未收藏的路径点；star remove：只显示已收藏的（收藏时间倒序）。
+    // 控制台无收藏概念：add 列出全部公有路径点，remove 无可选项
+    private static CompletableFuture<Suggestions> suggestStarPublic(CommandSourceStack source, SuggestionsBuilder builder, WarpManager mgr, boolean onlyStarred) {
+        if (!(source.getSender() instanceof Player player)) {
+            if (onlyStarred) return Suggestions.empty();
+            return suggestTokens(builder, mgr.getPublicWarps().stream().map(Warp::getName).toList());
+        }
+        List<Warp> warps = filterByStar(mgr.getPublicWarps(), mgr.getStarredWarpIds(player.getUniqueId()), onlyStarred);
+        return suggestTokens(builder, warps.stream().map(Warp::getName).toList());
+    }
+
+    // star add/remove 私有补全：玩家按自己的收藏状态过滤；控制台第一个参数建议玩家名
+    private static CompletableFuture<Suggestions> suggestStarPrivate(CommandSourceStack source, SuggestionsBuilder builder, WarpManager mgr, boolean onlyStarred) {
+        if (source.getSender() instanceof Player player) {
+            List<Warp> warps = filterByStar(mgr.getPrivateWarps(player.getUniqueId()), mgr.getStarredWarpIds(player.getUniqueId()), onlyStarred);
+            return suggestTokens(builder, warps.stream().map(Warp::getName).toList());
+        }
+
+        String typed = builder.getRemaining();
+        if (!typed.contains(" ")) {
+            Set<String> names = new HashSet<>();
+            for (Player online : Bukkit.getOnlinePlayers()) {
+                names.add(online.getName());
+            }
+            for (UUID uuid : mgr.getPrivateWarpOwners()) {
+                String name = Bukkit.getOfflinePlayer(uuid).getName();
+                if (name != null) names.add(name);
+            }
+            return suggestTokens(builder, List.copyOf(names));
+        }
+        String ownerName = typed.trim().split("\\s+")[0];
+        UUID ownerUuid = resolvePlayerByName(ownerName).getUniqueId();
+        List<Warp> warps = filterByStar(mgr.getPrivateWarps(ownerUuid), mgr.getStarredWarpIds(ownerUuid), onlyStarred);
+        return suggestTokens(builder, warps.stream().map(Warp::getName).toList());
+    }
+
+    // 按收藏状态过滤：onlyStarred=false 只保留未收藏的，true 只保留已收藏的（按收藏时间倒序）
+    private static List<Warp> filterByStar(List<Warp> warps, List<Integer> starredIds, boolean onlyStarred) {
+        Set<Integer> starredSet = new HashSet<>(starredIds);
+        List<Warp> filtered = warps.stream().filter(w -> onlyStarred == starredSet.contains(w.getId())).toList();
+        return onlyStarred ? sortStarredFirst(filtered, starredIds) : filtered;
+    }
+
     // 收藏优先排序：收藏的路径点按收藏时间倒序（参数 starredWarpIds 已是最新在前）排最前，
     // 未收藏的保持传入顺序（即创建时间倒序）
     private static List<Warp> sortStarredFirst(List<Warp> warps, List<Integer> starredWarpIds) {
@@ -462,23 +505,23 @@ public final class WarpCommand {
                     .then(literal(TYPE_PUBLIC)
                         .then(argument("name", string)
                             .suggests((ctx, builder) ->
-                                suggestPublicWarps(ctx.getSource(), builder, plugin.getWarpManager(), false))
+                                suggestStarPublic(ctx.getSource(), builder, plugin.getWarpManager(), false))
                             .executes(ctx -> executeStarAdd(ctx, plugin, WarpType.PUBLIC))))
                     .then(literal(TYPE_PRIVATE)
                         .then(argument("name", string)
                             .suggests((ctx, builder) ->
-                                suggestPrivateWarps(ctx.getSource(), builder, plugin.getWarpManager()))
+                                suggestStarPrivate(ctx.getSource(), builder, plugin.getWarpManager(), false))
                             .executes(ctx -> executeStarAdd(ctx, plugin, WarpType.PRIVATE)))))
                 .then(literal("remove")
                     .then(literal(TYPE_PUBLIC)
                         .then(argument("name", string)
                             .suggests((ctx, builder) ->
-                                suggestPublicWarps(ctx.getSource(), builder, plugin.getWarpManager(), false))
+                                suggestStarPublic(ctx.getSource(), builder, plugin.getWarpManager(), true))
                             .executes(ctx -> executeStarRemove(ctx, plugin, WarpType.PUBLIC))))
                     .then(literal(TYPE_PRIVATE)
                         .then(argument("name", string)
                             .suggests((ctx, builder) ->
-                                suggestPrivateWarps(ctx.getSource(), builder, plugin.getWarpManager()))
+                                suggestStarPrivate(ctx.getSource(), builder, plugin.getWarpManager(), true))
                             .executes(ctx -> executeStarRemove(ctx, plugin, WarpType.PRIVATE)))))
                 .then(literal("list")
                     .executes(ctx -> executeStarList(ctx, plugin))))
