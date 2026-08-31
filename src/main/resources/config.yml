@@ -124,10 +124,15 @@ tpa:
 
 # ========== 更新检查 ==========
 update-checker:
-  # 是否启用更新检查（启动时检查一次 GitHub Release，有新版本会通知管理员）
-  enabled: true
+  # 是否在插件启动时检查一次更新
+  check-on-startup: true
+  auto-check:
+    # 是否自动定期检查更新（有新版本会通知管理员）
+    enabled: true
+    # 自动检查间隔（小时），最小 1
+    interval-hours: 6
   # GitHub Releases API 地址，一般无需修改；国内服务器可换成 GitHub 代理镜像
   url: "https://api.github.com/repos/Block-Bring/BringTeleport/releases/latest"
 
 # 插件配置版本
-config-version: 4
+config-version: 5

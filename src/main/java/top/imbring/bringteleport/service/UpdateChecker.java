@@ -3,6 +3,7 @@ package top.imbring.bringteleport.service;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.bukkit.scheduler.BukkitTask;
 import top.imbring.bringteleport.BringTeleportPlugin;
 
 import java.io.IOException;
@@ -38,6 +39,7 @@ public final class UpdateChecker {
 
     private volatile String latestVersion;
     private volatile long lastCheckAt;
+    private BukkitTask periodicTask;
 
     public UpdateChecker(BringTeleportPlugin plugin) {
         this.plugin = plugin;
@@ -47,10 +49,24 @@ public final class UpdateChecker {
             .build();
     }
 
-    /** 启动时检查一次，仅当配置启用时生效。 */
+    /**
+     * 启动时检查一次（check-on-startup），并注册自动检查任务
+     * （auto-check.enabled，间隔 interval-hours 小时）。
+     */
     public void start() {
-        if (enabled()) {
+        if (checkOnStartup()) {
             checkAsync(this::announce);
+        }
+        if (autoCheckEnabled()) {
+            long intervalTicks = Math.max(1, intervalHours()) * 3_600_000L / 50;
+            this.periodicTask = Bukkit.getScheduler().runTaskTimerAsynchronously(
+                plugin, () -> checkAsync(this::announce), intervalTicks, intervalTicks);
+        }
+    }
+
+    public void shutdown() {
+        if (this.periodicTask != null) {
+            this.periodicTask.cancel();
         }
     }
 
@@ -164,8 +180,16 @@ public final class UpdateChecker {
         }
     }
 
-    private boolean enabled() {
-        return plugin.getConfig().getBoolean("update-checker.enabled", true);
+    private boolean checkOnStartup() {
+        return plugin.getConfig().getBoolean("update-checker.check-on-startup", true);
+    }
+
+    private boolean autoCheckEnabled() {
+        return plugin.getConfig().getBoolean("update-checker.auto-check.enabled", true);
+    }
+
+    private long intervalHours() {
+        return plugin.getConfig().getLong("update-checker.auto-check.interval-hours", 6);
     }
 
     private String currentVersion() {

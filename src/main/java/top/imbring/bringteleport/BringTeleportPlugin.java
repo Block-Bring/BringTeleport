@@ -63,6 +63,9 @@ public final class BringTeleportPlugin extends JavaPlugin implements Listener {
         if (this.warpManager != null) {
             this.warpManager.shutdown();
         }
+        if (this.updateChecker != null) {
+            this.updateChecker.shutdown();
+        }
         getLogger().info("BringTeleport has been disabled!");
     }
 
