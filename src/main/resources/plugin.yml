@@ -11,6 +11,9 @@ permissions:
   bringteleport.reload:
     description: 重载插件配置文件
     default: op
+  bringteleport.update:
+    description: 检查插件更新
+    default: op
 
   # Warp feature permissions
   bringteleport.warp.create:
@@ -75,6 +78,7 @@ permissions:
     default: op
     children:
       bringteleport.reload: true
+      bringteleport.update: true
       bringteleport.warp.*: true
       bringteleport.deathback: true
       bringteleport.tpa.*: true

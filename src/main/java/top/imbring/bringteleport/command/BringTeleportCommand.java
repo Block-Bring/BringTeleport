@@ -20,6 +20,8 @@ public final class BringTeleportCommand {
                 .executes(ctx -> executeReload(ctx, plugin)))
             .then(literal("help")
                 .executes(ctx -> executeHelp(ctx, plugin)))
+            .then(literal("update")
+                .executes(ctx -> executeUpdate(ctx, plugin)))
             .build();
 
         commands.register(node, "BringTeleport plugin management commands");
@@ -39,6 +41,21 @@ public final class BringTeleportCommand {
             return 1;
         } catch (Exception e) {
             return WarpCommand.handleError(plugin, ctx, "Failed to reload plugin", e);
+        }
+    }
+
+    private static int executeUpdate(CommandContext<CommandSourceStack> ctx, BringTeleportPlugin plugin) {
+        try {
+            CommandSourceStack source = ctx.getSource();
+            if (!source.getSender().hasPermission("bringteleport.update")) {
+                source.getSender().sendMessage(
+                    plugin.getLocaleManager().getMessage("warp.error.no-permission", null));
+                return 0;
+            }
+            plugin.getUpdateChecker().checkFor(source.getSender());
+            return 1;
+        } catch (Exception e) {
+            return WarpCommand.handleError(plugin, ctx, "Failed to check for updates", e);
         }
     }
 

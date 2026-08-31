@@ -52,6 +52,20 @@ public final class ConfigManager {
             changed = true;
         }
 
+        // v5 迁移：update-checker.enabled 拆分为 check-on-startup 与 auto-check.enabled
+        // （原开关值同步到两者，保留用户关闭/开启的意图）
+        if (fileName.equals("config.yml") && current.contains("update-checker.enabled")) {
+            boolean enabled = current.getBoolean("update-checker.enabled", true);
+            if (!current.contains("update-checker.check-on-startup")) {
+                current.set("update-checker.check-on-startup", enabled);
+            }
+            if (!current.contains("update-checker.auto-check.enabled")) {
+                current.set("update-checker.auto-check.enabled", enabled);
+            }
+            current.set("update-checker.enabled", null);
+            changed = true;
+        }
+
         try (InputStream in = plugin.getResource(fileName)) {
             if (in == null) return;
 
