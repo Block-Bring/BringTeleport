@@ -1,6 +1,9 @@
 package top.imbring.bringteleport;
 
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import top.imbring.bringteleport.command.CommandManager;
 import top.imbring.bringteleport.command.DeathBackCommand;
@@ -10,14 +13,16 @@ import top.imbring.bringteleport.config.ConfigManager;
 import top.imbring.bringteleport.locale.LocaleManager;
 import top.imbring.bringteleport.service.DeathBackManager;
 import top.imbring.bringteleport.service.TeleportHistory;
+import top.imbring.bringteleport.service.UpdateChecker;
 import top.imbring.bringteleport.service.WarpManager;
 
-public final class BringTeleportPlugin extends JavaPlugin {
+public final class BringTeleportPlugin extends JavaPlugin implements Listener {
 
     private LocaleManager localeManager;
     private WarpManager warpManager;
     private TeleportHistory teleportHistory;
     private DeathBackManager deathBackManager;
+    private UpdateChecker updateChecker;
 
     @Override
     public void onEnable() {
@@ -33,6 +38,11 @@ public final class BringTeleportPlugin extends JavaPlugin {
         this.warpManager = new WarpManager(this);
         this.teleportHistory = new TeleportHistory();
         this.deathBackManager = new DeathBackManager(this);
+        this.updateChecker = new UpdateChecker(this);
+
+        // 缓存有新版时，加入的玩家（有权限）收到更新提示
+        getServer().getPluginManager().registerEvents(this, this);
+        this.updateChecker.start();
 
         // Register commands via Paper lifecycle
         getLifecycleManager().registerEventHandler(
@@ -70,6 +80,18 @@ public final class BringTeleportPlugin extends JavaPlugin {
 
     public DeathBackManager getDeathBackManager() {
         return this.deathBackManager;
+    }
+
+    public UpdateChecker getUpdateChecker() {
+        return this.updateChecker;
+    }
+
+    @EventHandler
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        if (this.updateChecker != null && this.updateChecker.hasCachedUpdate()
+            && event.getPlayer().hasPermission("bringteleport.update")) {
+            this.updateChecker.notifyPlayer(event.getPlayer());
+        }
     }
 
     public void reload() {

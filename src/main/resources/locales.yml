@@ -7,9 +7,19 @@ bringteleport:
 
     <dark_green>◈ 管理</dark_green>
     <green>/bringteleport reload</green>  <white>重载配置文件</white>
+    <green>/bringteleport update</green>  <white>检查插件更新</white>
     <green>/bringteleport help</green>  <white>显示此帮助</white>
   reload:
     success: "{prefix} <green>✔</green> <white>配置文件已重载</white>"
+
+# ========== 更新检查 ==========
+update:
+  # 发现新版本 {current} {latest}
+  found: "{prefix} <yellow>发现新版本</yellow> <green>{latest}</green> <white>（当前 </white><gray>{current}</gray><white>）</white>"
+  # 已是最新版本 {current}
+  up-to-date: "{prefix} <green>当前已是最新版本</green> <white>({current})</white>"
+  # 检查失败
+  check-failed: "{prefix} <red>更新检查失败，请稍后重试</red>"
 
 # ========== 世界显示名 ==========
 # 路径点信息中显示的世界名，可自由添加任意世界的映射（兼容多世界插件）

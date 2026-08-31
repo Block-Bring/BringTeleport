@@ -122,5 +122,12 @@ tpa:
         # 音调（0.5 - 2.0）
         pitch: 1.0
 
+# ========== 更新检查 ==========
+update-checker:
+  # 是否启用更新检查（启动时检查一次 GitHub Release，有新版本会通知管理员）
+  enabled: true
+  # GitHub Releases API 地址，一般无需修改；国内服务器可换成 GitHub 代理镜像
+  url: "https://api.github.com/repos/Block-Bring/BringTeleport/releases/latest"
+
 # 插件配置版本
-config-version: 3
+config-version: 4
