@@ -23,9 +23,11 @@ import top.imbring.bringteleport.BringTeleportPlugin;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.logging.Level;
@@ -152,6 +154,14 @@ public final class TpaCommand {
             .executes(ctx -> executeBack(ctx, plugin))
             .build();
         commands.register(tpaBackNode, "Return to your location before the last TPA", List.of());
+
+        var tpaCancelNode = literal("tpacancel")
+            .then(argument("player", string)
+                .suggests((ctx, builder) -> suggestCancellableTargets(ctx.getSource(), builder))
+                .executes(ctx -> executeCancel(ctx, plugin, true)))
+            .executes(ctx -> executeCancel(ctx, plugin, false))
+            .build();
+        commands.register(tpaCancelNode, "Cancel a pending teleport request you sent", List.of());
 
         // 玩家下线时清空其收到的请求，避免残留过期请求
         plugin.getServer().getPluginManager().registerEvents(new Listener() {
@@ -487,6 +497,75 @@ public final class TpaCommand {
         }
     }
 
+    // 请求者撤回自己发出的待处理请求；无参数时撤回发给所有玩家的请求
+    private static int executeCancel(CommandContext<CommandSourceStack> ctx, BringTeleportPlugin plugin, boolean hasArg) {
+        try {
+            Player requester = requirePlayer(plugin, ctx);
+            if (requester == null) return 1;
+            if (!requester.hasPermission(PERM_REQUEST)) {
+                requester.sendMessage(getLocaleMessage(plugin, "tpa.error.no-permission"));
+                return 0;
+            }
+
+            UUID requesterUuid = requester.getUniqueId();
+            // 候选目标玩家 UUID，有参数时只处理该玩家
+            List<UUID> targets;
+            if (hasArg) {
+                String targetName = ctx.getArgument("player", String.class).trim();
+                Player target = resolveOnlinePlayer(targetName);
+                if (target == null) {
+                    requester.sendMessage(getLocaleMessage(plugin, "tpa.cancel.none"));
+                    return 1;
+                }
+                targets = List.of(target.getUniqueId());
+            } else {
+                targets = List.copyOf(REQUESTS.keySet());
+            }
+
+            // 目标 UUID -> 被取消的请求；同一目标不会同时存在两个来自同一请求者的请求
+            Map<UUID, PendingRequest> cancelled = new HashMap<>();
+            for (UUID targetUuid : targets) {
+                List<PendingRequest> list = REQUESTS.get(targetUuid);
+                if (list == null) continue;
+                List<PendingRequest> mine = list.stream()
+                    .filter(r -> r.requesterUuid().equals(requesterUuid))
+                    .toList();
+                if (!mine.isEmpty()) {
+                    list.removeAll(mine);
+                    mine.forEach(r -> cancelled.put(targetUuid, r));
+                }
+                if (list.isEmpty()) {
+                    REQUESTS.remove(targetUuid);
+                }
+            }
+
+            if (cancelled.isEmpty()) {
+                requester.sendMessage(getLocaleMessage(plugin, "tpa.cancel.none"));
+                return 1;
+            }
+
+            if (hasArg) {
+                UUID targetUuid = cancelled.keySet().iterator().next();
+                Player target = Bukkit.getPlayer(targetUuid);
+                requester.sendMessage(plugin.getLocaleManager().getMessage("tpa.cancel.success",
+                    Map.of("player", escape(target == null ? "" : target.getName()))));
+            } else {
+                requester.sendMessage(getLocaleMessage(plugin, "tpa.cancel.success-all"));
+            }
+
+            for (Map.Entry<UUID, PendingRequest> entry : cancelled.entrySet()) {
+                Player target = Bukkit.getPlayer(entry.getKey());
+                if (target != null && target.isOnline()) {
+                    target.sendMessage(plugin.getLocaleManager().getMessage("tpa.cancel.notify",
+                        Map.of("player", escape(requester.getName()))));
+                }
+            }
+            return 1;
+        } catch (Exception e) {
+            return handleError(plugin, ctx, "Failed to execute tpacancel command", e);
+        }
+    }
+
     private static int executeBack(CommandContext<CommandSourceStack> ctx, BringTeleportPlugin plugin) {
         try {
             Player player = requirePlayer(plugin, ctx);
@@ -591,6 +670,31 @@ public final class TpaCommand {
             .map(PendingRequest::requesterName)
             .distinct()
             .toList()) {
+            if (name.toLowerCase(Locale.ROOT).startsWith(typed)) {
+                builder.suggest(name);
+            }
+        }
+        return builder.buildFuture();
+    }
+
+    // 建议当前玩家发出过待处理请求的目标玩家名，忽略大小写前缀匹配
+    private static CompletableFuture<Suggestions> suggestCancellableTargets(CommandSourceStack source, SuggestionsBuilder builder) {
+        if (!(source.getSender() instanceof Player player)) {
+            return builder.buildFuture();
+        }
+        String typed = builder.getRemaining().toLowerCase(Locale.ROOT);
+        UUID requesterUuid = player.getUniqueId();
+        Set<String> names = new LinkedHashSet<>();
+        for (Map.Entry<UUID, List<PendingRequest>> entry : REQUESTS.entrySet()) {
+            boolean mine = entry.getValue().stream()
+                .anyMatch(r -> r.requesterUuid().equals(requesterUuid));
+            if (!mine) continue;
+            Player target = Bukkit.getPlayer(entry.getKey());
+            if (target != null) {
+                names.add(target.getName());
+            }
+        }
+        for (String name : names) {
             if (name.toLowerCase(Locale.ROOT).startsWith(typed)) {
                 builder.suggest(name);
             }

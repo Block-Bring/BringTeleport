@@ -9,7 +9,7 @@ bringteleport:
     <green>/bringteleport reload</green>  <white>重载配置文件</white>
     <green>/bringteleport help</green>  <white>显示此帮助</white>
   reload:
-    success: "{prefix} <green>✔</green> <white>配置文件已重载</white>"
+    success: "{prefix} <green>配置文件已重载</green>"
 
 # ========== 世界显示名 ==========
 # 路径点信息中显示的世界名，可自由添加任意世界的映射（兼容多世界插件）
@@ -183,22 +183,27 @@ tpa:
     <dark_green>◈ 回应</dark_green>
     <green>/tpaccept [玩家名]</green>  <white>接受传送请求</white>
     <green>/tpadeny [玩家名]</green>  <white>拒绝传送请求</white>
+    <green>/tpacancel [玩家名]</green>  <white>取消自己发出的传送请求</white>
 
     <dark_green>◈ 其他</dark_green>
     <green>/tpaback</green>  <white>返回 TPA 传送前的位置</white>
   request:
-    # 发送成功提示（发送方）
-    sent: "{prefix} <green>✔</green> <white>已向 </white><yellow>{player}</yellow><white> 发送传送请求，等待对方接受</white>"
-    here-sent: "{prefix} <green>✔</green> <white>已请求 </white><yellow>{player}</yellow><white> 传送到你身边，等待对方接受</white>"
+    # 发送成功提示（发送方），最后一行是点击按钮，文本与命令均可自定义
+    sent: |
+      {prefix} <green>✔</green> <white>已向 </white><yellow>{player}</yellow><white> 发送传送请求，等待对方接受</white>
+      <click:run_command:'/tpacancel {player}'><hover:show_text:'<red>取消请求</red>'><red>[✘ 取消]</red></hover></click>
+    here-sent: |
+      {prefix} <green>✔</green> <white>已请求 </white><yellow>{player}</yellow><white> 传送到你身边，等待对方接受</white>
+      <click:run_command:'/tpacancel {player}'><hover:show_text:'<red>取消请求</red>'><red>[✘ 取消]</red></hover></click>
     # 收到请求提示（接收方），最后一行是点击按钮，文本与命令均可自定义
     received: |
       {prefix}
       <white>玩家 </white><yellow>{player}</yellow><white> 请求传送到你身边</white>
-      <click:run_command:'/tpaccept {player}'><hover:show_text:'<green>接受请求</green>'><green>[接受]</green></hover></click> <click:run_command:'/tpadeny {player}'><hover:show_text:'<red>拒绝请求</red>'><red>[拒绝]</red></hover></click>
+      <click:run_command:'/tpaccept {player}'><hover:show_text:'<green>接受请求</green>'><green>[✔ 接受]</green></hover></click> <click:run_command:'/tpadeny {player}'><hover:show_text:'<red>拒绝请求</red>'><red>[✘ 拒绝]</red></hover></click>
     here-received: |
       {prefix}
       <white>玩家 </white><yellow>{player}</yellow><white> 请求你传送到他身边</white>
-      <click:run_command:'/tpaccept {player}'><hover:show_text:'<green>接受请求</green>'><green>[接受]</green></hover></click> <click:run_command:'/tpadeny {player}'><hover:show_text:'<red>拒绝请求</red>'><red>[拒绝]</red></hover></click>
+      <click:run_command:'/tpaccept {player}'><hover:show_text:'<green>接受请求</green>'><green>[✔ 接受]</green></hover></click> <click:run_command:'/tpadeny {player}'><hover:show_text:'<red>拒绝请求</red>'><red>[✘ 拒绝]</red></hover></click>
   accept:
     # 接受后提示（接受方 / 请求方）
     success: "{prefix} <green>✔</green> <white>你接受了 </white><yellow>{player}</yellow><white> 的传送请求</white>"
@@ -209,6 +214,12 @@ tpa:
     success: "{prefix} <green>✔</green> <white>你拒绝了 </white><yellow>{player}</yellow><white> 的传送请求</white>"
     notify: "{prefix} <red>玩家 </red><yellow>{player}</yellow><red> 拒绝了你的传送请求</red>"
     multiple: "{prefix} <red>你有多个传送请求，请指定玩家：</red><yellow>/tpadeny <玩家名></yellow>"
+  cancel:
+    # 取消后提示（取消方 / 被取消方）
+    success: "{prefix} <green>✔</green> <white>已取消发给 </white><yellow>{player}</yellow><white> 的传送请求</white>"
+    success-all: "{prefix} <green>✔</green> <white>已取消所有待处理的传送请求</white>"
+    notify: "{prefix} <red>玩家 </red><yellow>{player}</yellow><red> 取消了对你的传送请求</red>"
+    none: "{prefix} <red>你没有待取消的传送请求</red>"
   teleport:
     countdown:
       title: "<bold><gold>即将传送</gold></bold>"

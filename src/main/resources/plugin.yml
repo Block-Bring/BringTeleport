@@ -42,7 +42,7 @@ permissions:
 
   # TPA feature permissions
   bringteleport.tpa.request:
-    description: 发送 TPA 传送请求
+    description: 发送或取消 TPA 传送请求
     default: true
   bringteleport.tpa.accept:
     description: 接受或拒绝 TPA 传送请求
