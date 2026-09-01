@@ -15,7 +15,10 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -27,6 +30,15 @@ public class WarpManager {
     private final String dbUrl;
     private Connection connection;
     private boolean schemaReady;
+
+    // Tab 补全在主线程执行，用内存缓存避免每次按键触发 SQLite 查询。
+    // 所有读写均发生在主线程（命令执行 / Tab 补全 / 聊天调度任务），无并发访问；
+    // 任何写操作后 invalidateCache，下次读取时全量重载。
+    private boolean cacheValid;
+    private List<Warp> publicWarps;                    // type=PUBLIC，按 id DESC
+    private Map<UUID, List<Warp>> privateWarpsByOwner; // 按 id DESC
+    private Map<UUID, List<Integer>> starredIdsByPlayer; // 收藏时间倒序（star id DESC）
+    private List<UUID> privateWarpOwners;
 
     public WarpManager(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -95,6 +107,52 @@ public class WarpManager {
         }
     }
 
+    // 懒加载全量数据到内存；构建到局部变量，全部成功后才提交，避免半更新状态
+    private void ensureCache() {
+        if (this.cacheValid) {
+            return;
+        }
+        try {
+            List<Warp> publics = new ArrayList<>();
+            Map<UUID, List<Warp>> privates = new HashMap<>();
+            try (Statement stmt = getConnection().createStatement();
+                 ResultSet rs = stmt.executeQuery("SELECT * FROM warps ORDER BY id DESC")) {
+                while (rs.next()) {
+                    Warp warp = mapRow(rs);
+                    if (warp.getType() == WarpType.PUBLIC) {
+                        publics.add(warp);
+                    } else if (warp.getOwnerUuid() != null) {
+                        privates.computeIfAbsent(warp.getOwnerUuid(), k -> new ArrayList<>()).add(warp);
+                    }
+                }
+            }
+            Map<UUID, List<Integer>> starred = new HashMap<>();
+            try (Statement stmt = getConnection().createStatement();
+                 ResultSet rs = stmt.executeQuery("SELECT warp_id, player_uuid FROM warp_stars ORDER BY id DESC")) {
+                while (rs.next()) {
+                    UUID player = UUID.fromString(rs.getString("player_uuid"));
+                    starred.computeIfAbsent(player, k -> new ArrayList<>()).add(rs.getInt("warp_id"));
+                }
+            }
+            this.publicWarps = publics;
+            this.privateWarpsByOwner = privates;
+            this.starredIdsByPlayer = starred;
+            this.privateWarpOwners = new ArrayList<>(privates.keySet());
+            this.cacheValid = true;
+        } catch (SQLException e) {
+            // 与直接查询失败的行为一致：本次读取返回空结果，下次调用重试
+            this.plugin.getLogger().log(Level.SEVERE, "Failed to load warp cache", e);
+        }
+    }
+
+    private void invalidateCache() {
+        this.cacheValid = false;
+        this.publicWarps = null;
+        this.privateWarpsByOwner = null;
+        this.starredIdsByPlayer = null;
+        this.privateWarpOwners = null;
+    }
+
     /**
      * Add a new warp.
      * @return true if successful, false if name already exists
@@ -123,6 +181,8 @@ public class WarpManager {
             }
             this.plugin.getLogger().log(Level.SEVERE, "Failed to add warp", e);
             return false;
+        } finally {
+            invalidateCache();
         }
     }
 
@@ -157,6 +217,8 @@ public class WarpManager {
         } catch (SQLException e) {
             this.plugin.getLogger().log(Level.SEVERE, "Failed to delete warp", e);
             return false;
+        } finally {
+            invalidateCache();
         }
     }
 
@@ -176,6 +238,8 @@ public class WarpManager {
             }
             this.plugin.getLogger().log(Level.SEVERE, "Failed to star warp", e);
             return false;
+        } finally {
+            invalidateCache();
         }
     }
 
@@ -191,6 +255,8 @@ public class WarpManager {
         } catch (SQLException e) {
             this.plugin.getLogger().log(Level.SEVERE, "Failed to unstar warp", e);
             return false;
+        } finally {
+            invalidateCache();
         }
     }
 
@@ -213,19 +279,9 @@ public class WarpManager {
      * (used for Tab-completion ordering).
      */
     public List<Integer> getStarredWarpIds(UUID playerUuid) {
-        List<Integer> ids = new ArrayList<>();
-        String sql = "SELECT warp_id FROM warp_stars WHERE player_uuid = ? ORDER BY id DESC";
-        try (PreparedStatement pstmt = getConnection().prepareStatement(sql)) {
-            pstmt.setString(1, playerUuid.toString());
-            try (ResultSet rs = pstmt.executeQuery()) {
-                while (rs.next()) {
-                    ids.add(rs.getInt("warp_id"));
-                }
-            }
-        } catch (SQLException e) {
-            this.plugin.getLogger().log(Level.SEVERE, "Failed to list starred warps", e);
-        }
-        return ids;
+        ensureCache();
+        List<Integer> ids = this.starredIdsByPlayer.get(playerUuid);
+        return ids != null ? Collections.unmodifiableList(ids) : List.of();
     }
 
     /**
@@ -291,6 +347,8 @@ public class WarpManager {
             }
             this.plugin.getLogger().log(Level.SEVERE, "Failed to rename warp", e);
             return false;
+        } finally {
+            invalidateCache();
         }
     }
 
@@ -328,53 +386,27 @@ public class WarpManager {
      * List all public warps.
      */
     public List<Warp> getPublicWarps() {
-        List<Warp> warps = new ArrayList<>();
-        String sql = "SELECT * FROM warps WHERE type = 'PUBLIC' ORDER BY id DESC";
-        try (Statement stmt = getConnection().createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
-            while (rs.next()) {
-                warps.add(mapRow(rs));
-            }
-        } catch (SQLException e) {
-            this.plugin.getLogger().log(Level.SEVERE, "Failed to list public warps", e);
-        }
-        return warps;
+        ensureCache();
+        List<Warp> warps = this.publicWarps;
+        return warps != null ? Collections.unmodifiableList(warps) : List.of();
     }
 
     /**
      * List all players who own at least one private warp.
      */
     public List<UUID> getPrivateWarpOwners() {
-        List<UUID> owners = new ArrayList<>();
-        String sql = "SELECT DISTINCT owner_uuid FROM warps WHERE type = 'PRIVATE' AND owner_uuid IS NOT NULL";
-        try (Statement stmt = getConnection().createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
-            while (rs.next()) {
-                owners.add(UUID.fromString(rs.getString("owner_uuid")));
-            }
-        } catch (SQLException e) {
-            this.plugin.getLogger().log(Level.SEVERE, "Failed to list private warp owners", e);
-        }
-        return owners;
+        ensureCache();
+        List<UUID> owners = this.privateWarpOwners;
+        return owners != null ? Collections.unmodifiableList(owners) : List.of();
     }
 
     /**
      * List all private warps for a player.
      */
     public List<Warp> getPrivateWarps(UUID ownerUuid) {
-        List<Warp> warps = new ArrayList<>();
-        String sql = "SELECT * FROM warps WHERE type = 'PRIVATE' AND owner_uuid = ? ORDER BY id DESC";
-        try (PreparedStatement pstmt = getConnection().prepareStatement(sql)) {
-            pstmt.setString(1, ownerUuid.toString());
-            try (ResultSet rs = pstmt.executeQuery()) {
-                while (rs.next()) {
-                    warps.add(mapRow(rs));
-                }
-            }
-        } catch (SQLException e) {
-            this.plugin.getLogger().log(Level.SEVERE, "Failed to list private warps", e);
-        }
-        return warps;
+        ensureCache();
+        List<Warp> warps = this.privateWarpsByOwner.get(ownerUuid);
+        return warps != null ? Collections.unmodifiableList(warps) : List.of();
     }
 
     /**
