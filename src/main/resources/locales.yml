@@ -66,7 +66,7 @@ warp:
     # 最后一行是单击传送按钮，文本与命令均可自定义
     shared: |
       {prefix}
-      <white>玩家 </white><yellow>{player}</yellow><white> 分享了一个路径点 </white><yellow>{name}</yellow><white>！</white>
+      <white>玩家 </white><yellow>{player}</yellow><white> 分享了一个名为 </white><yellow>{name}</yellow><white> 的<gold>传送锚点</gold>！</white>
       <white>来自 </white>{world}<white> 的 </white><green>{x} {y} {z}</green>
       <click:run_command:'/warp tp public {name}'><hover:show_text:'<green>点击传送到</green> <yellow>{name}</yellow>'><gold>[单击此处传送]</gold></hover></click>
     duplicate-public: "{prefix} <red>公有路径点 </red><yellow>{name}</yellow><red> 已存在</red>"
