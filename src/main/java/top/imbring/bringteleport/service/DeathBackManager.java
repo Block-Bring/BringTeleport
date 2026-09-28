@@ -189,8 +189,8 @@ public class DeathBackManager {
         });
     }
 
-    // 安全点回填；期间玩家可能再次死亡覆盖记录，仅当记录仍指向本次死亡点时生效。
-    // 找到安全点后危险标志清除，/back 无需再确认
+    // 安全点回填；期间玩家可能再次死亡覆盖记录，仅当记录仍指向本次死亡点时生效
+    // 找到安全点后危险标志清除，/back 无需再确认。
     private void updateSafePoint(UUID uuid, Location safe, Location origin) {
         String sql = """
             UPDATE death_backs SET safe_x = ?, safe_y = ?, safe_z = ?, dangerous = 0

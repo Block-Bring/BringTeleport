@@ -31,7 +31,7 @@ public class WarpManager {
     private Connection connection;
     private boolean schemaReady;
 
-    // Tab 补全在主线程执行，用内存缓存避免每次按键触发 SQLite 查询。
+    // Tab 补全在主线程执行，用内存缓存避免每次按键触发 SQLite 查询
     // 所有读写均发生在主线程（命令执行 / Tab 补全 / 聊天调度任务），无并发访问；
     // 任何写操作后 invalidateCache，下次读取时全量重载。
     private boolean cacheValid;
@@ -154,8 +154,8 @@ public class WarpManager {
     }
 
     /**
-     * Add a new warp.
-     * @return true if successful, false if name already exists
+     * 新增路径点。
+     * @return 成功返回 true；名称已存在返回 false
      */
     public boolean addWarp(Warp warp) {
         String sql = "INSERT INTO warps (name, world, x, y, z, yaw, pitch, type, owner_uuid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
@@ -187,8 +187,8 @@ public class WarpManager {
     }
 
     /**
-     * Delete a warp by name and type.
-     * @return true if deleted, false if not found
+     * 按名称与类型删除路径点。
+     * @return 删除成功返回 true；未找到返回 false
      */
     public boolean deleteWarp(String name, WarpType type, UUID ownerUuid) {
         String sql;
@@ -223,7 +223,7 @@ public class WarpManager {
     }
 
     /**
-     * Star a warp for a player. Returns false if already starred.
+     * 为玩家收藏路径点。已收藏时返回 false。
      */
     public boolean starWarp(int warpId, UUID playerUuid) {
         String sql = "INSERT INTO warp_stars (warp_id, player_uuid) VALUES (?, ?)";
@@ -244,7 +244,7 @@ public class WarpManager {
     }
 
     /**
-     * Remove a star. Returns false if it wasn't starred.
+     * 取消收藏。原本未收藏时返回 false。
      */
     public boolean unstarWarp(int warpId, UUID playerUuid) {
         String sql = "DELETE FROM warp_stars WHERE warp_id = ? AND player_uuid = ?";
@@ -275,8 +275,7 @@ public class WarpManager {
     }
 
     /**
-     * All warp ids starred by a player, newest star first
-     * (used for Tab-completion ordering).
+     * 玩家收藏的全部路径点 id，最新收藏的在前（用于 Tab 补全排序）。
      */
     public List<Integer> getStarredWarpIds(UUID playerUuid) {
         ensureCache();
@@ -285,7 +284,7 @@ public class WarpManager {
     }
 
     /**
-     * All warps starred by a player, newest star first.
+     * 玩家收藏的全部路径点，最新收藏的在前。
      */
     public List<Warp> getStarredWarps(UUID playerUuid) {
         List<Warp> warps = new ArrayList<>();
@@ -305,7 +304,7 @@ public class WarpManager {
     }
 
     /**
-     * Number of players who starred a warp (public info display).
+     * 收藏该路径点的玩家数（公有路径点信息展示用）。
      */
     public int getStarCount(int warpId) {
         String sql = "SELECT COUNT(*) FROM warp_stars WHERE warp_id = ?";
@@ -323,8 +322,8 @@ public class WarpManager {
     }
 
     /**
-     * Rename a warp.
-     * @return true if renamed, false if not found or new name conflicts with an existing warp
+     * 重命名路径点。
+     * @return 重命名成功返回 true；未找到或新名称与已有路径点冲突返回 false
      */
     public boolean renameWarp(String name, WarpType type, UUID ownerUuid, String newName) {
         String sql;
@@ -353,9 +352,9 @@ public class WarpManager {
     }
 
     /**
-     * Get a warp by name and type for a player.
-     * For PUBLIC: just name
-     * For PRIVATE: name + ownerUuid
+     * 按名称与类型查询玩家的路径点。
+     * 公有路径点：仅按名称
+     * 私有路径点：名称 + ownerUuid
      */
     public Optional<Warp> getWarp(String name, WarpType type, UUID ownerUuid) {
         String sql;
@@ -383,7 +382,7 @@ public class WarpManager {
     }
 
     /**
-     * List all public warps.
+     * 列出全部公有路径点。
      */
     public List<Warp> getPublicWarps() {
         ensureCache();
@@ -392,7 +391,7 @@ public class WarpManager {
     }
 
     /**
-     * List all players who own at least one private warp.
+     * 列出拥有至少一个私有路径点的所有玩家。
      */
     public List<UUID> getPrivateWarpOwners() {
         ensureCache();
@@ -401,7 +400,7 @@ public class WarpManager {
     }
 
     /**
-     * List all private warps for a player.
+     * 列出某玩家的全部私有路径点。
      */
     public List<Warp> getPrivateWarps(UUID ownerUuid) {
         ensureCache();
@@ -410,7 +409,7 @@ public class WarpManager {
     }
 
     /**
-     * Convert a Warp to a Bukkit Location.
+     * 将路径点转换为 Bukkit Location。
      */
     public Location toLocation(Warp warp) {
         World world = Bukkit.getWorld(warp.getWorld());

@@ -31,12 +31,12 @@ public class TeleportHistory {
         return list == null ? 0 : list.size();
     }
 
-    /** Save where the player was right before /warp tp back was used. */
+    /** 记录玩家执行 /warp tp back 前所在的位置。 */
     public void setLastBackSource(Player player, Location location) {
         lastBackSource.put(player.getUniqueId(), location.clone());
     }
 
-    /** Retrieve and clear the undo location. */
+    /** 取出并清除该撤销位置。 */
     public @Nullable Location getAndClearLastBackSource(Player player) {
         return lastBackSource.remove(player.getUniqueId());
     }

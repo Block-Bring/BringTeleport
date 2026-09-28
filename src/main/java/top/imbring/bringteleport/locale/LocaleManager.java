@@ -60,7 +60,7 @@ public class LocaleManager {
         // 含 {prefix} 的消息依赖前缀定义，前缀变化后随 reload 重建，不缓存
         boolean hasPrefixPlaceholder = message.contains("{prefix}");
 
-        // Return cached component for messages without placeholders
+        // 无占位符的消息直接返回缓存组件
         if (!hasPlaceholders && !hasPrefixPlaceholder) {
             Component cached = messageCache.get(path);
             if (cached != null) {
@@ -80,7 +80,7 @@ public class LocaleManager {
 
         Component component = this.miniMessage.deserialize(message);
 
-        // Cache only for messages without placeholders
+        // 仅为无占位符的消息写入缓存
         if (!hasPlaceholders && !hasPrefixPlaceholder) {
             messageCache.put(path, component);
         }
