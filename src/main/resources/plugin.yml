@@ -7,7 +7,7 @@ main: top.imbring.bringteleport.BringTeleportPlugin
 commands: { }
 
 permissions:
-  # Plugin-level permissions
+  # ========== 插件 ==========
   bringteleport.reload:
     description: 重载插件配置文件
     default: op
@@ -15,7 +15,7 @@ permissions:
     description: 检查插件更新
     default: op
 
-  # Warp feature permissions
+  # ========== 路径点 ==========
   bringteleport.warp.create:
     description: 创建路径点
     default: true
@@ -38,12 +38,12 @@ permissions:
     description: 收藏路径点
     default: true
 
-  # Death back feature permissions
+  # ========== 死亡返回 ==========
   bringteleport.deathback:
     description: 死亡后返回死亡地点
     default: true
 
-  # TPA feature permissions
+  # ========== 玩家传送 (TPA) ==========
   bringteleport.tpa.request:
     description: 发送或取消 TPA 传送请求
     default: true
@@ -54,7 +54,7 @@ permissions:
     description: 返回 TPA 传送前的位置
     default: true
 
-  # Wildcards
+  # ========== 通配权限 ==========
   bringteleport.warp.*:
     description: 所有路径点权限
     default: op

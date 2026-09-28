@@ -26,9 +26,9 @@ public final class BringTeleportPlugin extends JavaPlugin implements Listener {
 
     @Override
     public void onEnable() {
-        // Force sqlite-jdbc to use pure Java mode — prevents native DLL
-        // extraction from the plugin JAR, which can cause Paper's classloader
-        // to lose access to the JAR on Windows (zip file closed error).
+        // 强制 sqlite-jdbc 使用纯 Java 模式，避免从插件 JAR 中解压原生 DLL：
+        // 在 Windows 上解压会导致 Paper 类加载器失去对 JAR 的访问，
+        // 报出 zip file closed 错误
         System.setProperty("sqlite.purejava", "true");
 
         saveDefaultConfig();
@@ -44,7 +44,7 @@ public final class BringTeleportPlugin extends JavaPlugin implements Listener {
         getServer().getPluginManager().registerEvents(this, this);
         this.updateChecker.start();
 
-        // Register commands via Paper lifecycle
+        // 通过 Paper 生命周期事件注册命令
         getLifecycleManager().registerEventHandler(
             LifecycleEvents.COMMANDS,
             event -> CommandManager.register(event.registrar(), this)

@@ -69,40 +69,40 @@ public final class WarpCommand {
     private record PrivateTarget(String ownerName, String name) {}
     private record PendingRename(String name, WarpType type, long timestamp) {}
 
-    // ===== B2: Configuration cache =====
+    // ===== B2: 配置缓存 =====
     private static class ConfigCache {
-        // Cancel-on-move
+        // 移动取消
         static boolean cancelOnMoveEnabled;
         static String cancelSoundName;
         static float cancelSoundVolume;
         static float cancelSoundPitch;
         static String cancelDisplayMode;
 
-        // Countdown
+        // 倒计时
         static boolean countdownEnabled;
         static double countdownDelay;
         static double countdownInterval;
         static String countdownDisplayMode;
 
-        // Countdown sound
+        // 倒计时提示音
         static boolean countdownSoundEnabled;
         static String countdownSoundName;
         static int countdownSoundInterval;
         static float countdownSoundVolume;
         static float countdownSoundPitch;
 
-        // Success display
+        // 成功提示
         static String successDisplayMode;
         static boolean successSoundEnabled;
         static String successSoundName;
         static float successSoundVolume;
         static float successSoundPitch;
 
-        // Delete confirmation
+        // 删除确认
         static boolean deleteConfirmationEnabled;
         static double deleteConfirmationTimeout;
 
-        // Display timezone (database stores UTC)
+        // 显示时区（数据库存的是 UTC）
         static ZoneId displayZone;
 
         private ConfigCache() {}
@@ -121,7 +121,7 @@ public final class WarpCommand {
             countdownDisplayMode = config.getString("warp.teleport.countdown.display", "both");
 
             countdownSoundEnabled = config.getBoolean("warp.teleport.countdown.sound.enabled", true);
-            countdownSoundName = config.getString("warp.teleport.countdown.sound.name", "block.note_block.pling");
+            countdownSoundName = config.getString("warp.teleport.countdown.sound.name", "entity.experience_orb.pickup");
             countdownSoundInterval = config.getInt("warp.teleport.countdown.sound.interval", 1);
             countdownSoundVolume = (float) config.getDouble("warp.teleport.countdown.sound.volume", 1.0);
             countdownSoundPitch = (float) config.getDouble("warp.teleport.countdown.sound.pitch", 1.0);
@@ -171,7 +171,7 @@ public final class WarpCommand {
         }
     }
 
-    // ===== A1: Tab completion helpers =====
+    // ===== A1: Tab 补全辅助方法 =====
     // 所有补全统一走 suggestTokens（手动构造 Suggestion 并限定 range 为当前 token）：
     // 与 /tpwarp 相同的返回方式，确保服务端原样保留排序结果
     private static CompletableFuture<Suggestions> suggestPublicWarps(CommandSourceStack source, SuggestionsBuilder builder, WarpManager mgr, boolean filterOwner) {
@@ -317,7 +317,7 @@ public final class WarpCommand {
         return List.of();
     }
 
-    // ===== A2: Player & name resolution helpers =====
+    // ===== A2: 玩家与名称解析辅助方法 =====
     private static Player resolvePlayer(CommandContext<CommandSourceStack> ctx, BringTeleportPlugin plugin) {
         CommandSourceStack source = ctx.getSource();
         if (source.getSender() instanceof Player player) {
@@ -416,13 +416,13 @@ public final class WarpCommand {
         return null;
     }
 
-    // ===== C2: Cancel all active countdowns =====
+    // ===== C2: 取消所有进行中的倒计时 =====
     public static void cancelAllCountdowns() {
         ACTIVE_COUNTDOWNS.values().forEach(ctx -> ctx.task().cancel());
         ACTIVE_COUNTDOWNS.clear();
     }
 
-    // ===== B2: Public cache refresh entry =====
+    // ===== B2: 配置缓存刷新入口 =====
     public static void refreshConfigCache(BringTeleportPlugin plugin) {
         ConfigCache.refresh(plugin);
     }
@@ -635,7 +635,7 @@ public final class WarpCommand {
             WarpManager manager = plugin.getWarpManager();
             UUID ownerUuid = player.getUniqueId();
 
-            // Check for duplicates manually for better error messages
+            // 手动检查重复，以便给出更具体的错误提示
             if (type == WarpType.PUBLIC) {
                 Optional<Warp> existing = manager.getWarp(name, WarpType.PUBLIC, null);
                 if (existing.isPresent()) {
@@ -728,7 +728,7 @@ public final class WarpCommand {
             // 删除确认仅对玩家生效，控制台直接删除
             if (ConfigCache.deleteConfirmationEnabled && sender instanceof Player player) {
                 double timeoutSec = ConfigCache.deleteConfirmationTimeout;
-                // C1: Clean up expired pending deletions for this player
+                // C1: 清理该玩家过期的待删除记录
                 PENDING_DELETIONS.entrySet().removeIf(entry ->
                     entry.getKey().equals(player.getUniqueId())
                         && System.currentTimeMillis() - entry.getValue().timestamp() > (long) (timeoutSec * 1000));
@@ -949,7 +949,7 @@ public final class WarpCommand {
 
             Warp warp = opt.get();
 
-            // Resolve creator name
+            // 解析创建者名称
             String creatorName = "???";
             UUID creatorUuid = warp.getOwnerUuid();
             if (creatorUuid != null) {
@@ -963,10 +963,10 @@ public final class WarpCommand {
                 creatorName = "---";
             }
 
-            // Format creation time
+            // 格式化创建时间
             String formattedDate = formatDateTime(warp.getCreatedAt());
 
-            // Build info message
+            // 构建信息消息
             var typeLabel = getTypeLabel(plugin, type);
             Map<String, String> placeholders = new HashMap<>(locationPlaceholders(warp, plugin));
             placeholders.put("name", escape(warp.getName()));
@@ -1316,7 +1316,7 @@ public final class WarpCommand {
             }
             Location target = history.getBackLocation(player, steps);
 
-            // Save current position for undo (don't record this teleport in history)
+            // 保存当前位置以便撤销（本次传送不进历史链）
             history.setLastBackSource(player, player.getLocation());
 
             player.teleportAsync(target);
@@ -1403,7 +1403,7 @@ public final class WarpCommand {
         return seconds == Math.floor(seconds) ? String.valueOf((long) seconds) : String.valueOf(seconds);
     }
 
-    // ===== A3: Unified display message =====
+    // ===== A3: 统一消息显示 =====
     private static void sendDisplayMessage(Player player, Component titleComponent, Component subtitleComponent, Component chatComponent, String displayMode) {
         var times = Title.Times.times(Duration.ZERO, Duration.ofSeconds(1), Duration.ofMillis(250));
         switch (displayMode) {
@@ -1414,7 +1414,7 @@ public final class WarpCommand {
         }
     }
 
-    // ===== A4: Unified error handler =====
+    // ===== A4: 统一错误处理 =====
     static int handleError(BringTeleportPlugin plugin, CommandContext<CommandSourceStack> ctx, String errorMsg, Exception e) {
         plugin.getLogger().log(Level.SEVERE, errorMsg, e);
         ctx.getSource().getSender().sendMessage(Component.text("An internal error occurred. Please try again."));

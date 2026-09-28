@@ -55,9 +55,9 @@ public final class DeathBackCommand {
     public static void register(Commands commands, BringTeleportPlugin plugin) {
         ConfigCache.refresh(plugin);
 
-        // 死亡时记录位置；无权限的玩家不记录，省存储。
+        // 死亡时记录位置；无权限的玩家不记录，省存储
         // 死亡点本身安全时直接落库（绝大多数情况）；不安全时异步搜索安全点，
-        // 大范围方块搜索放到主线程之外，避免死亡瞬间卡服
+        // 大范围方块搜索放到主线程之外，避免死亡瞬间卡服。
         plugin.getServer().getPluginManager().registerEvents(new Listener() {
             @EventHandler
             public void onPlayerDeath(PlayerDeathEvent event) {

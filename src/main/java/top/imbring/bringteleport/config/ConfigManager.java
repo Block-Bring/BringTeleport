@@ -18,10 +18,9 @@ public final class ConfigManager {
     }
 
     /**
-     * Merges missing keys from the bundled default config.yml and locales.yml
-     * into the user's existing files, so new features work without manual deletion.
-     * After merging, files are reordered to match the default key order, so keys
-     * added by updates stay in their natural position instead of piling up at the end.
+     * 把 jar 内默认 config.yml 与 locales.yml 中缺失的键合并进用户现有文件，
+     * 使新功能无需手动删除旧文件即可使用。合并后按键顺序对齐默认配置，
+     * 避免更新新增的键堆积在文件末尾。
      */
     public static void migrate(JavaPlugin plugin) {
         migrateFile(plugin, "config.yml");
@@ -31,7 +30,7 @@ public final class ConfigManager {
     private static void migrateFile(JavaPlugin plugin, String fileName) {
         File file = new File(plugin.getDataFolder(), fileName);
         if (!file.exists()) {
-            // User doesn't have this file yet — let the standard saveResource handle it
+            // 用户还没有该文件，交给标准的 saveResource 处理
             plugin.saveResource(fileName, false);
             return;
         }
@@ -88,9 +87,9 @@ public final class ConfigManager {
                 changed |= trimLeadingBlankLines(current, defaults);
             }
 
-            // 迁移：移除 {stars_line} 特殊占位符机制，收藏行内联为公有模板的常规行。
+            // 迁移：移除 {stars_line} 特殊占位符机制，收藏行内联为公有模板的常规行
             // 旧模板含 {stars_line}（或仍引用旧 stars 键）则整段替换为新默认公有模板，
-            // 并清理已废弃的 warp.info.stars 键
+            // 并清理已废弃的 warp.info.stars 键。
             if (fileName.equals("locales.yml") && current.contains("warp.info.template")
                 && defaults.contains("warp.info.template")) {
                 String template = current.getString("warp.info.template");
@@ -132,9 +131,8 @@ public final class ConfigManager {
     }
 
     /**
-     * Prepend {@code {prefix} } to user messages whose default template contains
-     * {@code {prefix}} but the user's copy doesn't yet. Keeps user-customized
-     * content intact. Returns true if any keys were modified.
+     * 默认模板含 {@code {prefix}} 而用户文案尚未包含时，为其补上 {@code {prefix} }。
+     * 保留用户自定义内容。有任何键被修改则返回 true。
      */
     private static boolean addPrefixPlaceholder(ConfigurationSection target, ConfigurationSection defaults) {
         boolean changed = false;
@@ -157,9 +155,8 @@ public final class ConfigManager {
     }
 
     /**
-     * Replaces user message values that contain the rendered prefix text
-     * (historical versions wrote the rendered prefix into locale content)
-     * with the default template. Returns true if any keys were modified.
+     * 用户文案中含已渲染的前缀文本（历史版本把渲染后的前缀写进了消息内容）时，
+     * 整键替换为默认模板。有任何键被修改则返回 true。
      */
     private static boolean cleanupRenderedPrefix(ConfigurationSection target, ConfigurationSection defaults, String prefixDef) {
         boolean changed = false;
@@ -182,9 +179,8 @@ public final class ConfigManager {
     }
 
     /**
-     * Removes leading blank lines from user message values whose default
-     * template has none, so SnakeYAML won't write them back as {@code |2}
-     * indentation indicators. Returns true if any keys were modified.
+     * 默认模板无空首行、而用户文案以空行开头时，去掉开头的空行，
+     * 避免 SnakeYAML 保存时写成 {@code |2} 缩进指示符。有任何键被修改则返回 true。
      */
     private static boolean trimLeadingBlankLines(ConfigurationSection target, ConfigurationSection defaults) {
         boolean changed = false;
@@ -206,8 +202,8 @@ public final class ConfigManager {
     }
 
     /**
-     * Deep-merge: copies keys from {@code defaults} into {@code target} if
-     * they don't already exist. Returns true if any keys were added.
+     * 深度合并：把 {@code defaults} 中存在、{@code target} 中缺失的键复制过去。
+     * 有任何键被新增则返回 true。
      */
     private static boolean mergeMissing(ConfigurationSection target, ConfigurationSection defaults) {
         boolean changed = false;
@@ -227,9 +223,8 @@ public final class ConfigManager {
     }
 
     /**
-     * Rebuilds {@code current} with keys ordered like {@code defaults} (deep).
-     * Keys that only exist in {@code current} are kept, appended to the end of
-     * their parent section, preserving their relative order.
+     * 按 {@code defaults} 的键顺序（递归）重建 {@code current}。
+     * 仅存在于 {@code current} 的键保留，追加到所属层级末尾，并保持原有相对顺序。
      */
     private static YamlConfiguration reorderToDefault(YamlConfiguration current, YamlConfiguration defaults) {
         YamlConfiguration result = new YamlConfiguration();
