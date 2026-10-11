@@ -41,6 +41,9 @@ public class DeathBackManager {
     private final String dbUrl;
     private Connection connection;
 
+    // 死亡记录缓存：用 Optional 包住以支持"该玩家没有记录"的负缓存
+    private final ConcurrentHashMap<UUID, Optional<DeathRecord>> cache = new ConcurrentHashMap<>();
+
     // 进行中的异步安全点搜索：/back 需等待其完成再读取记录，避免落回危险死亡点
     private final ConcurrentHashMap<UUID, CompletableFuture<Void>> pendingSearches = new ConcurrentHashMap<>();
 
@@ -113,14 +116,21 @@ public class DeathBackManager {
      * @param dangerous 死亡点本身危险（如岩浆/虚空）且不会去搜索安全点，/back 需 confirm 确认
      */
     public void saveDeathLocation(Player player, Location location, boolean dangerous) {
+        UUID uuid = player.getUniqueId();
+        String world = location.getWorld() != null ? location.getWorld().getName() : "";
+        DeathRecord record = new DeathRecord(world, location.getX(), location.getY(), location.getZ(),
+            location.getYaw(), location.getPitch(), null, null, null, dangerous);
+        // 先落缓存：复活提示与 /back 立即读到最新记录，不必为一次死亡再往返一次数据库
+        cache.put(uuid, Optional.of(record));
+
         try (PreparedStatement pstmt = getConnection().prepareStatement(UPSERT_SQL)) {
-            pstmt.setString(1, player.getUniqueId().toString());
-            pstmt.setString(2, location.getWorld() != null ? location.getWorld().getName() : "");
-            pstmt.setDouble(3, location.getX());
-            pstmt.setDouble(4, location.getY());
-            pstmt.setDouble(5, location.getZ());
-            pstmt.setFloat(6, location.getYaw());
-            pstmt.setFloat(7, location.getPitch());
+            pstmt.setString(1, uuid.toString());
+            pstmt.setString(2, record.world());
+            pstmt.setDouble(3, record.x());
+            pstmt.setDouble(4, record.y());
+            pstmt.setDouble(5, record.z());
+            pstmt.setFloat(6, record.yaw());
+            pstmt.setFloat(7, record.pitch());
             pstmt.setNull(8, java.sql.Types.REAL);
             pstmt.setNull(9, java.sql.Types.REAL);
             pstmt.setNull(10, java.sql.Types.REAL);
@@ -186,6 +196,14 @@ public class DeathBackManager {
         });
     }
 
+    // 两次记录是否同一死亡落点（比对库中用于匹配的字段）
+    private static boolean sameSpot(DeathRecord a, DeathRecord b) {
+        return a.world().equals(b.world())
+            && Double.compare(a.x(), b.x()) == 0
+            && Double.compare(a.y(), b.y()) == 0
+            && Double.compare(a.z(), b.z()) == 0;
+    }
+
     // 记录是否仍指向本次死亡点：搜索期间玩家可能再次死亡并覆盖记录。
     // 判定与回填都在主线程，读到的记录不会被并发修改
     private boolean isCurrentRecord(UUID uuid, Location origin) {
@@ -201,6 +219,11 @@ public class DeathBackManager {
 
     // 安全点回填；调用前需已确认记录仍属本次死亡，找到安全点后危险标志清除，/back 无需再确认。
     private void updateSafePoint(UUID uuid, Location safe) {
+        // 同步缓存，避免 /back 读到仍带危险标记的旧记录
+        cache.computeIfPresent(uuid, (k, current) -> current.map(r -> new DeathRecord(
+            r.world(), r.x(), r.y(), r.z(), r.yaw(), r.pitch(),
+            safe.getX(), safe.getY(), safe.getZ(), false)));
+
         String sql = """
             UPDATE death_backs SET safe_x = ?, safe_y = ?, safe_z = ?, dangerous = 0
             WHERE player_uuid = ?
@@ -223,7 +246,22 @@ public class DeathBackManager {
         return pendingSearches.get(playerUuid);
     }
 
+    /**
+     * 读取死亡记录。缓存优先（含"无记录"的负缓存），未命中才查库并记入缓存，
+     * 使复活提示与 /back 在本次会话内不再触发主线程数据库查询。
+     */
     public Optional<DeathRecord> getDeathRecord(UUID playerUuid) {
+        Optional<DeathRecord> cached = cache.get(playerUuid);
+        if (cached != null) return cached;
+
+        Optional<DeathRecord> loaded = loadDeathRecord(playerUuid);
+        if (loaded == null) return Optional.empty(); // 查询失败：不写缓存，下次仍可重试
+        cache.put(playerUuid, loaded);
+        return loaded;
+    }
+
+    // 查库读取记录；查询失败返回 null，与"确实没有记录"的空 Optional 区分开
+    private Optional<DeathRecord> loadDeathRecord(UUID playerUuid) {
         String sql = "SELECT world, x, y, z, yaw, pitch, safe_x, safe_y, safe_z, dangerous FROM death_backs WHERE player_uuid = ?";
         try (PreparedStatement pstmt = getConnection().prepareStatement(sql)) {
             pstmt.setString(1, playerUuid.toString());
@@ -242,11 +280,12 @@ public class DeathBackManager {
                         safeX, safeY, safeZ,
                         rs.getInt("dangerous") != 0));
                 }
+                return Optional.empty();
             }
         } catch (SQLException e) {
             this.plugin.getLogger().log(Level.SEVERE, "Failed to get death location for " + playerUuid, e);
+            return null;
         }
-        return Optional.empty();
     }
 
     /**
@@ -254,6 +293,10 @@ public class DeathBackManager {
      * 传送是异步的，期间玩家可能再次死亡并写入新记录，此时不能把新记录一并删掉。
      */
     public void clearIfCurrent(UUID playerUuid, DeathRecord expected) {
+        // 缓存同步：仍是这条记录才移除（返回 null 即删除映射），与库里的匹配删除保持一致
+        cache.computeIfPresent(playerUuid, (k, current) ->
+            current.isPresent() && sameSpot(current.get(), expected) ? null : current);
+
         String sql = """
             DELETE FROM death_backs
             WHERE player_uuid = ? AND world = ? AND x = ? AND y = ? AND z = ?
