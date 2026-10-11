@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static io.papermc.paper.command.brigadier.Commands.literal;
@@ -28,6 +29,11 @@ import static io.papermc.paper.command.brigadier.Commands.literal;
 public final class DeathBackCommand {
 
     private static final String PERMISSION = "bringteleport.deathback";
+
+    // 在途 /back 标记：同一玩家一次只允许一个（值为发起时间戳）
+    private static final Map<UUID, Long> IN_FLIGHT = new ConcurrentHashMap<>();
+    // 在途标记过期时间（毫秒）：异常路径漏释放时自动失效，避免玩家被永久挡住
+    private static final long IN_FLIGHT_EXPIRE_MS = 30_000L;
 
     // 等待安全点搜索结果的上限（tick，200 = 10 秒），超过即放弃等待
     private static final long SEARCH_WAIT_TIMEOUT_TICKS = 200L;
@@ -119,19 +125,7 @@ public final class DeathBackCommand {
                 player.sendMessage(getLocaleMessage(plugin, "deathback.error.disabled"));
                 return 1;
             }
-            UUID uuid = player.getUniqueId();
-            // 死亡点不安全时，安全点可能还在异步搜索中：等它完成再读取记录传送，
-            // 否则会先落回死亡点（如岩浆/海里）再死一次
-            runAfterSearch(plugin, player, uuid, () -> {
-                DeathBackManager.DeathRecord record = readRecordOrWarn(plugin, player);
-                if (record == null) return;
-                if (record.safeX() != null || !record.dangerous()) {
-                    teleportBack(plugin, player, uuid, record, false);
-                } else {
-                    // 未找到安全点且死亡点危险：要求 /back confirm 确认
-                    player.sendMessage(getLocaleMessage(plugin, "deathback.confirm-required"));
-                }
-            });
+            startBack(plugin, player, false);
             return 1;
         } catch (Exception e) {
             return handleError(plugin, ctx, "Failed to execute back command", e);
@@ -151,17 +145,54 @@ public final class DeathBackCommand {
                 player.sendMessage(getLocaleMessage(plugin, "deathback.error.disabled"));
                 return 1;
             }
-            UUID uuid = player.getUniqueId();
-            runAfterSearch(plugin, player, uuid, () -> {
-                DeathBackManager.DeathRecord record = readRecordOrWarn(plugin, player);
-                if (record == null) return;
-                // 有安全点则传安全点；无安全点（危险或安全死亡点）都传死亡点
-                teleportBack(plugin, player, uuid, record, record.safeX() == null);
-            });
+            startBack(plugin, player, true);
             return 1;
         } catch (Exception e) {
             return handleError(plugin, ctx, "Failed to execute back confirm command", e);
         }
+    }
+
+    // 发起一次返回：同一玩家同时只允许一次在途请求，避免连点排队出多次传送与提示
+    private static void startBack(BringTeleportPlugin plugin, Player player, boolean confirm) {
+        UUID uuid = player.getUniqueId();
+        if (!beginBack(uuid)) {
+            player.sendMessage(getLocaleMessage(plugin, "deathback.error.busy"));
+            return;
+        }
+        // 死亡点不安全时，安全点可能还在异步搜索中：等它完成再读取记录传送，
+        // 否则会先落回死亡点（如岩浆/海里）再死一次
+        runAfterSearch(plugin, player, uuid, () -> performBack(plugin, player, uuid, confirm));
+    }
+
+    // 读取记录并传送（主线程执行）；confirm=true 表示玩家已确认返回危险死亡点
+    private static void performBack(BringTeleportPlugin plugin, Player player, UUID uuid, boolean confirm) {
+        DeathBackManager.DeathRecord record = readRecordOrWarn(plugin, player);
+        if (record == null) {
+            endBack(uuid);
+            return;
+        }
+        if (!confirm && record.safeX() == null && record.dangerous()) {
+            // 未找到安全点且死亡点危险：要求 /back confirm 确认
+            player.sendMessage(getLocaleMessage(plugin, "deathback.confirm-required"));
+            endBack(uuid);
+            return;
+        }
+        // 有安全点则传安全点；confirm 且无安全点（危险或安全死亡点）都传死亡点
+        teleportBack(plugin, player, uuid, record, confirm && record.safeX() == null)
+            .whenComplete((v, ex) -> endBack(uuid));
+    }
+
+    // 标记 /back 在途；已有未过期的在途请求则拒绝
+    private static boolean beginBack(UUID uuid) {
+        long now = System.currentTimeMillis();
+        Long startedAt = IN_FLIGHT.get(uuid);
+        if (startedAt != null && now - startedAt < IN_FLIGHT_EXPIRE_MS) return false;
+        IN_FLIGHT.put(uuid, now);
+        return true;
+    }
+
+    private static void endBack(UUID uuid) {
+        IN_FLIGHT.remove(uuid);
     }
 
     private static Player requirePlayer(BringTeleportPlugin plugin, CommandContext<CommandSourceStack> ctx) {
@@ -216,14 +247,15 @@ public final class DeathBackCommand {
         return opt.get();
     }
 
-    // 读取死亡记录并传送（主线程执行）；forceDeathPoint=true 时忽略安全点直接传死亡点
-    private static void teleportBack(BringTeleportPlugin plugin, Player player, UUID uuid,
-                                     DeathBackManager.DeathRecord record, boolean forceDeathPoint) {
+    // 读取死亡记录并传送（主线程执行）；forceDeathPoint=true 时忽略安全点直接传死亡点。
+    // 返回的 future 在传送成功/失败后完成，用于释放在途标记
+    private static CompletableFuture<Void> teleportBack(BringTeleportPlugin plugin, Player player, UUID uuid,
+                                                       DeathBackManager.DeathRecord record, boolean forceDeathPoint) {
         World world = Bukkit.getWorld(record.world());
         if (world == null) {
             player.sendMessage(plugin.getLocaleManager().getMessage("deathback.error.world-not-loaded",
                 Map.of("world", plugin.getLocaleManager().getWorldName(record.world()))));
-            return;
+            return CompletableFuture.completedFuture(null);
         }
 
         Location target;
@@ -237,7 +269,7 @@ public final class DeathBackCommand {
         plugin.getTeleportHistory().setLastBackSource(player, player.getLocation());
 
         // 传送成功后才清除记录：失败时保留以便玩家重试
-        player.teleportAsync(target).thenAccept(success -> {
+        return player.teleportAsync(target).thenAccept(success -> {
             if (success) {
                 plugin.getDeathBackManager().clear(uuid);
                 player.sendMessage(getLocaleMessage(plugin, "deathback.success"));
