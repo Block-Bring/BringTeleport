@@ -157,8 +157,10 @@ public class DeathBackManager {
             // 回填放回主线程，与主线程上的读/清记录串行化，避免 SQLite 连接并发访问
             Bukkit.getScheduler().runTask(this.plugin, () -> {
                 try {
+                    // 搜索期间玩家可能再次死亡并覆盖记录：本次搜索的结果与提示都不该再生效
+                    if (!isCurrentRecord(uuid, location)) return;
                     if (safe != null) {
-                        updateSafePoint(uuid, safe, location);
+                        updateSafePoint(uuid, safe);
                     } else {
                         // 通用搜索失败：末地掉入虚空时走专属兜底（垂直找 Y 0~128，找不到生成平台）
                         World world = location.getWorld();
@@ -167,7 +169,7 @@ public class DeathBackManager {
                             fallback = SafePointFinder.handleEndVoid(
                                 world, location.getBlockX(), location.getBlockZ(), location);
                             if (fallback != null) {
-                                updateSafePoint(uuid, fallback, location);
+                                updateSafePoint(uuid, fallback);
                             }
                         }
                         if (fallback == null) {
@@ -186,22 +188,30 @@ public class DeathBackManager {
         });
     }
 
-    // 安全点回填；期间玩家可能再次死亡覆盖记录，仅当记录仍指向本次死亡点时生效
-    // 找到安全点后危险标志清除，/back 无需再确认。
-    private void updateSafePoint(UUID uuid, Location safe, Location origin) {
+    // 记录是否仍指向本次死亡点：搜索期间玩家可能再次死亡并覆盖记录。
+    // 判定与回填都在主线程，读到的记录不会被并发修改
+    private boolean isCurrentRecord(UUID uuid, Location origin) {
+        Optional<DeathRecord> record = getDeathRecord(uuid);
+        if (record.isEmpty()) return false;
+        DeathRecord current = record.get();
+        String world = origin.getWorld() != null ? origin.getWorld().getName() : "";
+        return current.world().equals(world)
+            && Double.compare(current.x(), origin.getX()) == 0
+            && Double.compare(current.y(), origin.getY()) == 0
+            && Double.compare(current.z(), origin.getZ()) == 0;
+    }
+
+    // 安全点回填；调用前需已确认记录仍属本次死亡，找到安全点后危险标志清除，/back 无需再确认。
+    private void updateSafePoint(UUID uuid, Location safe) {
         String sql = """
             UPDATE death_backs SET safe_x = ?, safe_y = ?, safe_z = ?, dangerous = 0
-            WHERE player_uuid = ? AND world = ? AND x = ? AND y = ? AND z = ?
+            WHERE player_uuid = ?
             """;
         try (PreparedStatement pstmt = getConnection().prepareStatement(sql)) {
             pstmt.setDouble(1, safe.getX());
             pstmt.setDouble(2, safe.getY());
             pstmt.setDouble(3, safe.getZ());
             pstmt.setString(4, uuid.toString());
-            pstmt.setString(5, origin.getWorld() != null ? origin.getWorld().getName() : "");
-            pstmt.setDouble(6, origin.getX());
-            pstmt.setDouble(7, origin.getY());
-            pstmt.setDouble(8, origin.getZ());
             pstmt.executeUpdate();
         } catch (SQLException e) {
             this.plugin.getLogger().log(Level.SEVERE, "Failed to update safe point for " + uuid, e);
