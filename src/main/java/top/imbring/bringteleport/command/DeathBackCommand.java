@@ -171,15 +171,19 @@ public final class DeathBackCommand {
     // 等待进行中的安全点搜索完成后在主线程执行 action
     private static void runAfterSearch(BringTeleportPlugin plugin, Player player, UUID uuid, Runnable action) {
         CompletableFuture<Void> pending = plugin.getDeathBackManager().getPendingSearch(uuid);
-        if (pending != null) {
-            pending.whenComplete((v, ex) -> {
-                if (plugin.isEnabled()) {
-                    Bukkit.getScheduler().runTask(plugin, action);
-                }
-            });
-        } else {
+        if (pending == null) {
             action.run();
+            return;
         }
+        pending.whenComplete((v, ex) -> {
+            if (!plugin.isEnabled()) return;
+            // 搜索回调已回到主线程完成 future，此时直接执行，不再多排一个 tick
+            if (Bukkit.isPrimaryThread()) {
+                action.run();
+            } else {
+                Bukkit.getScheduler().runTask(plugin, action);
+            }
+        });
     }
 
     private static DeathBackManager.DeathRecord readRecordOrWarn(BringTeleportPlugin plugin, Player player) {
