@@ -110,14 +110,11 @@ public class DeathBackManager {
 
     /**
      * 记录死亡位置（不搜索安全点）。
-     * 安全点开关关闭、或死亡点本身安全时使用；safe 列保持 NULL，/back 回退传死亡点。
+     * 安全点搜索关闭、或死亡点本身安全时使用；safe 列保持 NULL，/back 回退传死亡点。
+     *
+     * @param dangerous 死亡点本身危险（如岩浆/虚空）且不会去搜索安全点，/back 需 confirm 确认
      */
-    public void saveDeathLocation(Player player, Location location) {
-        saveDeathLocation(player, location, false);
-    }
-
-    // dangerous=true 表示死亡点本身危险（未找到安全点前），/back 需 confirm 确认
-    private void saveDeathLocation(Player player, Location location, boolean dangerous) {
+    public void saveDeathLocation(Player player, Location location, boolean dangerous) {
         try (PreparedStatement pstmt = getConnection().prepareStatement(UPSERT_SQL)) {
             pstmt.setString(1, player.getUniqueId().toString());
             pstmt.setString(2, location.getWorld() != null ? location.getWorld().getName() : "");
