@@ -6,7 +6,6 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
-import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
 import java.sql.Connection;
@@ -38,14 +37,14 @@ public class DeathBackManager {
     public record DeathRecord(String world, double x, double y, double z, float yaw, float pitch,
                               Double safeX, Double safeY, Double safeZ, boolean dangerous) {}
 
-    private final JavaPlugin plugin;
+    private final BringTeleportPlugin plugin;
     private final String dbUrl;
     private Connection connection;
 
     // 进行中的异步安全点搜索：/back 需等待其完成再读取记录，避免落回危险死亡点
     private final ConcurrentHashMap<UUID, CompletableFuture<Void>> pendingSearches = new ConcurrentHashMap<>();
 
-    public DeathBackManager(JavaPlugin plugin) {
+    public DeathBackManager(BringTeleportPlugin plugin) {
         this.plugin = plugin;
         File dbFile = new File(plugin.getDataFolder(), "data.db");
         this.dbUrl = "jdbc:sqlite:" + dbFile.getAbsolutePath();
@@ -175,7 +174,7 @@ public class DeathBackManager {
                         if (fallback == null) {
                             Player p = Bukkit.getPlayer(uuid);
                             if (p != null && p.isOnline()) {
-                                p.sendMessage(((BringTeleportPlugin) this.plugin).getLocaleManager()
+                                p.sendMessage(this.plugin.getLocaleManager()
                                     .getMessage("deathback.safe-point-not-found", null));
                             }
                         }
