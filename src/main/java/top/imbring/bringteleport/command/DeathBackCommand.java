@@ -118,14 +118,7 @@ public final class DeathBackCommand {
         try {
             Player player = requirePlayer(plugin, ctx);
             if (player == null) return 0;
-            if (!player.hasPermission(PERMISSION)) {
-                player.sendMessage(getLocaleMessage(plugin, "deathback.error.no-permission"));
-                return 0;
-            }
-            if (!ConfigCache.enabled) {
-                player.sendMessage(getLocaleMessage(plugin, "deathback.error.disabled"));
-                return 0;
-            }
+            if (!checkAccess(plugin, player)) return 0;
             startBack(plugin, player, false);
             return 1;
         } catch (Exception e) {
@@ -138,14 +131,7 @@ public final class DeathBackCommand {
         try {
             Player player = requirePlayer(plugin, ctx);
             if (player == null) return 0;
-            if (!player.hasPermission(PERMISSION)) {
-                player.sendMessage(getLocaleMessage(plugin, "deathback.error.no-permission"));
-                return 0;
-            }
-            if (!ConfigCache.enabled) {
-                player.sendMessage(getLocaleMessage(plugin, "deathback.error.disabled"));
-                return 0;
-            }
+            if (!checkAccess(plugin, player)) return 0;
             startBack(plugin, player, true);
             return 1;
         } catch (Exception e) {
@@ -203,6 +189,19 @@ public final class DeathBackCommand {
             return null;
         }
         return player;
+    }
+
+    // 权限与功能开关前置检查；不通过时已发送对应提示
+    private static boolean checkAccess(BringTeleportPlugin plugin, Player player) {
+        if (!player.hasPermission(PERMISSION)) {
+            player.sendMessage(getLocaleMessage(plugin, "deathback.error.no-permission"));
+            return false;
+        }
+        if (!ConfigCache.enabled) {
+            player.sendMessage(getLocaleMessage(plugin, "deathback.error.disabled"));
+            return false;
+        }
+        return true;
     }
 
     // 等待进行中的安全点搜索完成后在主线程执行 action
