@@ -179,6 +179,7 @@ deathback:
     player-only: "{prefix} <red>只有玩家才能使用此命令</red>"
     disabled: "{prefix} <red>死亡返回功能未启用</red>"
     no-record: "{prefix} <red>没有可返回的死亡记录</red>"
+    busy: "{prefix} <yellow>上一次返回尚未完成，请稍候再试</yellow>"
     world-not-loaded: "{prefix} <red>死亡地点所在世界 </red><yellow>{world}</yellow><red> 未加载</red>"
     teleport-failed: "{prefix} <red>传送失败，死亡记录已保留，可再次输入 </red><yellow>/back</yellow><red> 重试</red>"
 
