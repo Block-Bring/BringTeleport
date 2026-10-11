@@ -60,16 +60,17 @@ public final class DeathBackCommand {
         ConfigCache.refresh(plugin);
 
         // 死亡时记录位置；无权限的玩家不记录，省存储
-        // 死亡点本身安全时直接落库（绝大多数情况）；不安全时异步搜索安全点，
-        // 大范围方块搜索放到主线程之外，避免死亡瞬间卡服。
+        // 死亡点危险时才异步搜索安全点，大范围方块搜索放到主线程之外，避免死亡瞬间卡服。
+        // 是否危险与是否搜索解耦：关闭安全点搜索时同样判定危险点，/back 才不会把玩家直接送回岩浆。
         plugin.getServer().getPluginManager().registerEvents(new Listener() {
             @EventHandler
             public void onPlayerDeath(PlayerDeathEvent event) {
                 Player player = event.getPlayer();
                 if (!ConfigCache.enabled || !player.hasPermission(PERMISSION)) return;
                 Location location = player.getLocation();
-                if (!ConfigCache.safePointEnabled || SafePointFinder.isSpotSafe(location)) {
-                    plugin.getDeathBackManager().saveDeathLocation(player, location);
+                boolean dangerous = !SafePointFinder.isSpotSafe(location);
+                if (!ConfigCache.safePointEnabled || !dangerous) {
+                    plugin.getDeathBackManager().saveDeathLocation(player, location, dangerous);
                 } else {
                     plugin.getDeathBackManager().saveDeathLocationWithSafePointAsync(
                         player, location, ConfigCache.radiusH, ConfigCache.radiusV, ConfigCache.effort);
