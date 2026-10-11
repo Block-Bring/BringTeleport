@@ -101,8 +101,10 @@ public final class SafePointFinder {
         for (int cx = minChunkX; cx <= maxChunkX; cx++) {
             for (int cz = minChunkZ; cz <= maxChunkZ; cz++) {
                 if (!forceLoad && !world.isChunkLoaded(cx, cz)) continue;
-                // 1.21.1 无 getChunkSnapshotAsync：先异步取区块，再在线程池捕获线程安全快照
-                futures.add(world.getChunkAtAsync(cx, cz).thenApplyAsync(Chunk::getChunkSnapshot));
+                // 1.21.1 无 getChunkSnapshotAsync：先异步取区块，再在线程池捕获线程安全快照。
+                // 只读方块类型，故不抓每列最高 Y、生物群系与温度降雨，省掉这部分快照拷贝
+                futures.add(world.getChunkAtAsync(cx, cz)
+                    .thenApplyAsync(chunk -> chunk.getChunkSnapshot(false, false, false)));
                 coords.add(new int[]{cx, cz});
             }
         }
