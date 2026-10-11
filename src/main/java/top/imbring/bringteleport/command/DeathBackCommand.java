@@ -113,17 +113,18 @@ public final class DeathBackCommand {
         ConfigCache.refresh(plugin);
     }
 
+    // 命令返回值统一为：0 = 未受理（非玩家/无权限/功能关闭/内部错误），1 = 已受理
     private static int executeBack(CommandContext<CommandSourceStack> ctx, BringTeleportPlugin plugin) {
         try {
             Player player = requirePlayer(plugin, ctx);
-            if (player == null) return 1;
+            if (player == null) return 0;
             if (!player.hasPermission(PERMISSION)) {
                 player.sendMessage(getLocaleMessage(plugin, "deathback.error.no-permission"));
                 return 0;
             }
             if (!ConfigCache.enabled) {
                 player.sendMessage(getLocaleMessage(plugin, "deathback.error.disabled"));
-                return 1;
+                return 0;
             }
             startBack(plugin, player, false);
             return 1;
@@ -136,14 +137,14 @@ public final class DeathBackCommand {
     private static int executeBackConfirm(CommandContext<CommandSourceStack> ctx, BringTeleportPlugin plugin) {
         try {
             Player player = requirePlayer(plugin, ctx);
-            if (player == null) return 1;
+            if (player == null) return 0;
             if (!player.hasPermission(PERMISSION)) {
                 player.sendMessage(getLocaleMessage(plugin, "deathback.error.no-permission"));
                 return 0;
             }
             if (!ConfigCache.enabled) {
                 player.sendMessage(getLocaleMessage(plugin, "deathback.error.disabled"));
-                return 1;
+                return 0;
             }
             startBack(plugin, player, true);
             return 1;
