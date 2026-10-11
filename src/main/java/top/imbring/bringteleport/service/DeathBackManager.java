@@ -249,10 +249,21 @@ public class DeathBackManager {
         return Optional.empty();
     }
 
-    public void clear(UUID playerUuid) {
-        String sql = "DELETE FROM death_backs WHERE player_uuid = ?";
+    /**
+     * 清除死亡记录；仅当记录仍指向 {@code expected} 那次死亡时生效。
+     * 传送是异步的，期间玩家可能再次死亡并写入新记录，此时不能把新记录一并删掉。
+     */
+    public void clearIfCurrent(UUID playerUuid, DeathRecord expected) {
+        String sql = """
+            DELETE FROM death_backs
+            WHERE player_uuid = ? AND world = ? AND x = ? AND y = ? AND z = ?
+            """;
         try (PreparedStatement pstmt = getConnection().prepareStatement(sql)) {
             pstmt.setString(1, playerUuid.toString());
+            pstmt.setString(2, expected.world());
+            pstmt.setDouble(3, expected.x());
+            pstmt.setDouble(4, expected.y());
+            pstmt.setDouble(5, expected.z());
             pstmt.executeUpdate();
         } catch (SQLException e) {
             this.plugin.getLogger().log(Level.SEVERE, "Failed to clear death location for " + playerUuid, e);

@@ -276,7 +276,7 @@ public final class DeathBackCommand {
         // 传送成功后才清除记录：失败时保留以便玩家重试
         return player.teleportAsync(target).thenAccept(success -> {
             if (success) {
-                plugin.getDeathBackManager().clear(uuid);
+                plugin.getDeathBackManager().clearIfCurrent(uuid, record);
                 player.sendMessage(getLocaleMessage(plugin, "deathback.success"));
             } else {
                 player.sendMessage(getLocaleMessage(plugin, "deathback.error.teleport-failed"));
