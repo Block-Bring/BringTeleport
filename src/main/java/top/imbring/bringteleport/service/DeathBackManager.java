@@ -74,8 +74,7 @@ public class DeathBackManager {
                         safe_x REAL,
                         safe_y REAL,
                         safe_z REAL,
-                        dangerous INTEGER DEFAULT 0,
-                        died_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        dangerous INTEGER DEFAULT 0
                     )
                 """);
                 // 旧表（无安全点/危险标志列）迁移：SQLite 不支持 ADD COLUMN IF NOT EXISTS，需查列
