@@ -171,6 +171,7 @@ deathback:
   notify: |
     {prefix} <white>要传送到你这次游玩的死亡地点，请使用 <green>/back</green></white>
     <white>你的死亡地点是：{world} | <green>X:{x} Y:{y} Z:{z}</green>！
+  searching: "{prefix} <yellow>正在搜索安全落脚点，请稍候…</yellow>"
   confirm-required: "{prefix} <red>死亡点附近未找到安全落脚点，直接返回可能再次死亡。若仍要返回，请</red> <click:run_command:'/back confirm'><yellow><underlined>点击此处确认</underlined></yellow></click> <red>或输入 </red><yellow>/back confirm</yellow>"
   safe-point-not-found: "{prefix} <red>未能找到安全落脚点，</red><yellow>/back</yellow><red> 返回将需要确认</red>"
   error:

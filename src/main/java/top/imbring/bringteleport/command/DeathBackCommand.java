@@ -21,12 +21,16 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static io.papermc.paper.command.brigadier.Commands.literal;
 
 public final class DeathBackCommand {
 
     private static final String PERMISSION = "bringteleport.deathback";
+
+    // 等待安全点搜索结果的上限（tick，200 = 10 秒），超过即放弃等待
+    private static final long SEARCH_WAIT_TIMEOUT_TICKS = 200L;
 
     private static class ConfigCache {
         static boolean enabled;
@@ -171,19 +175,34 @@ public final class DeathBackCommand {
     // 等待进行中的安全点搜索完成后在主线程执行 action
     private static void runAfterSearch(BringTeleportPlugin plugin, Player player, UUID uuid, Runnable action) {
         CompletableFuture<Void> pending = plugin.getDeathBackManager().getPendingSearch(uuid);
-        if (pending == null) {
+        if (pending == null || pending.isDone()) {
             action.run();
             return;
         }
-        pending.whenComplete((v, ex) -> {
-            if (!plugin.isEnabled()) return;
-            // 搜索回调已回到主线程完成 future，此时直接执行，不再多排一个 tick
-            if (Bukkit.isPrimaryThread()) {
-                action.run();
-            } else {
-                Bukkit.getScheduler().runTask(plugin, action);
-            }
-        });
+
+        // effort 2/3 会异步加载范围内区块，等待可能持续数秒，先给玩家明确反馈
+        player.sendMessage(getLocaleMessage(plugin, "deathback.searching"));
+
+        // 只执行一次：搜索完成与超时兜底先到者生效
+        AtomicBoolean executed = new AtomicBoolean(false);
+        Runnable once = () -> {
+            if (!plugin.isEnabled() || !executed.compareAndSet(false, true)) return;
+            action.run();
+        };
+
+        pending.whenComplete((v, ex) -> runOnMainThread(plugin, once));
+        // 兜底：搜索 future 若始终不完成（如区块加载卡死），超时后按"未找到安全点"继续，
+        // 避免 /back 永久静默无响应
+        Bukkit.getScheduler().runTaskLater(plugin, once, SEARCH_WAIT_TIMEOUT_TICKS);
+    }
+
+    // 已在主线程则直接执行，否则调度回主线程
+    private static void runOnMainThread(BringTeleportPlugin plugin, Runnable task) {
+        if (Bukkit.isPrimaryThread()) {
+            task.run();
+        } else {
+            Bukkit.getScheduler().runTask(plugin, task);
+        }
     }
 
     private static DeathBackManager.DeathRecord readRecordOrWarn(BringTeleportPlugin plugin, Player player) {
