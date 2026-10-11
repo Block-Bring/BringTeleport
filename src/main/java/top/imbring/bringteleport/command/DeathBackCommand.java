@@ -153,6 +153,11 @@ public final class DeathBackCommand {
 
     // 读取记录并传送（主线程执行）；confirm=true 表示玩家已确认返回危险死亡点
     private static void performBack(BringTeleportPlugin plugin, Player player, UUID uuid, boolean confirm) {
+        // 等待搜索可能持续数秒，期间玩家可能已离线：不再传送，记录保留待其重连后再用
+        if (!player.isOnline()) {
+            endBack(uuid);
+            return;
+        }
         DeathBackManager.DeathRecord record = readRecordOrWarn(plugin, player);
         if (record == null) {
             endBack(uuid);
