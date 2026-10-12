@@ -1,5 +1,12 @@
 # BringTeleport
 
+[![Release](https://img.shields.io/github/v/release/Block-Bring/BringTeleport?style=flat-square&label=release&color=2f7d32)](https://github.com/Block-Bring/BringTeleport/releases/latest)
+[![License](https://img.shields.io/github/license/Block-Bring/BringTeleport?style=flat-square&color=2f7d32)](LICENSE)
+[![Stars](https://img.shields.io/github/stars/Block-Bring/BringTeleport?style=flat-square&color=f5a623)](https://github.com/Block-Bring/BringTeleport/stargazers)
+[![Issues](https://img.shields.io/github/issues/Block-Bring/BringTeleport?style=flat-square&color=0e8a16)](https://github.com/Block-Bring/BringTeleport/issues)
+![Paper](https://img.shields.io/badge/Paper-1.21.1%2B-2196F3?style=flat-square)
+![Java](https://img.shields.io/badge/Java-21-E76F00?style=flat-square&logo=openjdk&logoColor=white)
+
 一个面向 Paper 服务器的传送插件，提供路径点（Warp）、死亡返回（/back）与玩家间传送（TPA）功能。
 
 支持 Paper 1.21.1 及以上的所有版本。
