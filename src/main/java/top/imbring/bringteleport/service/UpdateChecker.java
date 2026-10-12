@@ -173,7 +173,7 @@ public final class UpdateChecker {
             plugin.getLogger().warning("A new version is available: " + result.latestVersion()
                 + " (current: " + currentVersion() + ")");
             for (Player player : Bukkit.getOnlinePlayers()) {
-                if (player.hasPermission("bringteleport.update")) {
+                if (player.hasPermission("bringteleport.admin.update")) {
                     notifyPlayer(player);
                 }
             }

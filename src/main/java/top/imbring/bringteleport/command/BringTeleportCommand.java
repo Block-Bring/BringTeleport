@@ -30,7 +30,7 @@ public final class BringTeleportCommand {
     private static int executeReload(CommandContext<CommandSourceStack> ctx, BringTeleportPlugin plugin) {
         try {
             CommandSourceStack source = ctx.getSource();
-            if (!source.getSender().hasPermission("bringteleport.reload")) {
+            if (!source.getSender().hasPermission("bringteleport.admin.reload")) {
                 source.getSender().sendMessage(
                     plugin.getLocaleManager().getMessage("warp.error.no-permission", null));
                 return 0;
@@ -47,7 +47,7 @@ public final class BringTeleportCommand {
     private static int executeUpdate(CommandContext<CommandSourceStack> ctx, BringTeleportPlugin plugin) {
         try {
             CommandSourceStack source = ctx.getSource();
-            if (!source.getSender().hasPermission("bringteleport.update")) {
+            if (!source.getSender().hasPermission("bringteleport.admin.update")) {
                 source.getSender().sendMessage(
                     plugin.getLocaleManager().getMessage("warp.error.no-permission", null));
                 return 0;

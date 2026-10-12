@@ -224,11 +224,11 @@ public final class WarpCommand {
         return CompletableFuture.completedFuture(new Suggestions(range, suggestions));
     }
 
-    // rename 公有路径点的补全：玩家仅建议自己创建的（或持 del.other 权限则全部），控制台建议全部公有路径点
+    // rename 公有路径点的补全：玩家仅建议自己创建的（或持 admin.warp.del.other 权限则全部），控制台建议全部公有路径点
     private static CompletableFuture<Suggestions> suggestRenamePublic(CommandSourceStack source, SuggestionsBuilder builder, WarpManager mgr) {
         if (source.getSender() instanceof Player player) {
             return suggestPublicWarps(source, builder, mgr,
-                !player.hasPermission("bringteleport.warp.del.other"));
+                !player.hasPermission("bringteleport.admin.warp.del.other"));
         }
         return suggestTokens(builder,
             mgr.getPublicWarps().stream().map(Warp::getName).toList());
@@ -451,7 +451,7 @@ public final class WarpCommand {
                         .suggests((ctx, builder) -> {
                             CommandSourceStack source = ctx.getSource();
                             return suggestPublicWarps(source, builder, plugin.getWarpManager(),
-                                source.getSender() instanceof Player player && !player.hasPermission("bringteleport.warp.del.other"));
+                                source.getSender() instanceof Player player && !player.hasPermission("bringteleport.admin.warp.del.other"));
                         })
                         .executes(ctx -> executeDel(ctx, plugin, WarpType.PUBLIC))))
                 .then(literal(TYPE_PRIVATE)
@@ -719,7 +719,7 @@ public final class WarpCommand {
                 boolean isOwner = existing.get().getOwnerUuid() != null
                     && existing.get().getOwnerUuid().equals(player.getUniqueId());
 
-                if (!isOwner && !player.hasPermission("bringteleport.warp.del.other")) {
+                if (!isOwner && !player.hasPermission("bringteleport.admin.warp.del.other")) {
                     player.sendMessage(plugin.getLocaleManager().getMessage("warp.delete.not-owner", null));
                     return 0;
                 }
@@ -826,7 +826,7 @@ public final class WarpCommand {
                     boolean isOwner = existing.get().getOwnerUuid() != null
                         && existing.get().getOwnerUuid().equals(player.getUniqueId());
 
-                    if (!isOwner && !player.hasPermission("bringteleport.warp.del.other")) {
+                    if (!isOwner && !player.hasPermission("bringteleport.admin.warp.del.other")) {
                         player.sendMessage(plugin.getLocaleManager().getMessage("warp.rename.not-owner", null));
                         return 0;
                     }

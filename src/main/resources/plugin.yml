@@ -7,12 +7,15 @@ main: top.imbring.bringteleport.BringTeleportPlugin
 commands: { }
 
 permissions:
-  # ========== 插件 ==========
-  bringteleport.reload:
+  # ========== 管理（敏感操作） ==========
+  bringteleport.admin.reload:
     description: 重载插件配置文件
     default: op
-  bringteleport.update:
+  bringteleport.admin.update:
     description: 检查插件更新
+    default: op
+  bringteleport.admin.warp.del.other:
+    description: 删除或重命名其他玩家创建的公有路径点
     default: op
 
   # ========== 路径点 ==========
@@ -22,9 +25,6 @@ permissions:
   bringteleport.warp.del:
     description: 删除路径点
     default: true
-  bringteleport.warp.del.other:
-    description: 删除其他玩家创建的公有路径点
-    default: op
   bringteleport.warp.info:
     description: 查看路径点信息
     default: true
@@ -55,13 +55,19 @@ permissions:
     default: true
 
   # ========== 通配权限 ==========
+  bringteleport.admin.*:
+    description: 所有敏感管理权限
+    default: op
+    children:
+      bringteleport.admin.reload: true
+      bringteleport.admin.update: true
+      bringteleport.admin.warp.del.other: true
   bringteleport.warp.*:
     description: 所有路径点权限
     default: op
     children:
       bringteleport.warp.create: true
       bringteleport.warp.del: true
-      bringteleport.warp.del.other: true
       bringteleport.warp.info: true
       bringteleport.warp.rename: true
       bringteleport.warp.tp: true
@@ -77,8 +83,7 @@ permissions:
     description: 所有 BringTeleport 权限
     default: op
     children:
-      bringteleport.reload: true
-      bringteleport.update: true
+      bringteleport.admin.*: true
       bringteleport.warp.*: true
       bringteleport.deathback: true
       bringteleport.tpa.*: true

@@ -25,7 +25,7 @@
 | `/warp create <public\|private> <名称>` | 在当前位置创建路径点 |
 | `/setwarp <public\|private> <名称>` | 快捷创建（等价 `/warp create`） |
 | `/warp delete <public\|private> <名称>` | 删除自己的路径点（需 `/warp confirm` 二次确认） |
-| `/warp delete public <名称>` | 删除他人创建的公有路径点（需 `bringteleport.warp.del.other`，同样需确认） |
+| `/warp delete public <名称>` | 删除他人创建的公有路径点（需 `bringteleport.admin.warp.del.other`，同样需确认） |
 | `/warp delete private <玩家名> <名称>` | 控制台删除指定玩家的私有路径点（控制台直接生效，无需确认） |
 | `/warp rename <public\|private> <名称>` | 重命名路径点（随后在聊天框输入新名字，30 秒超时） |
 | `/warp info <public\|private> <名称>` | 查看路径点信息 |
@@ -67,13 +67,15 @@
 
 ## 权限
 
+涉及管理或其他玩家数据的敏感操作统一收在 `bringteleport.admin` 命名空间下，默认仅 op 拥有。
+
 | 权限 | 说明 | 默认 |
 | --- | --- | --- |
-| `bringteleport.reload` | 重载插件配置 | op |
-| `bringteleport.update` | 检查插件更新（含加入服务器时的更新提示） | op |
+| `bringteleport.admin.reload` | 重载插件配置 | op |
+| `bringteleport.admin.update` | 检查插件更新（含加入服务器时的更新提示） | op |
+| `bringteleport.admin.warp.del.other` | 删除其他玩家创建的公有路径点（重命名他人公有路径点同样需要） | op |
 | `bringteleport.warp.create` | 创建路径点 | true |
 | `bringteleport.warp.del` | 删除路径点 | true |
-| `bringteleport.warp.del.other` | 删除其他玩家创建的公有路径点（重命名他人公有路径点同样需要） | op |
 | `bringteleport.warp.info` | 查看路径点信息 | true |
 | `bringteleport.warp.rename` | 重命名路径点 | true |
 | `bringteleport.warp.tp` | 传送到路径点 | true |
@@ -83,7 +85,7 @@
 | `bringteleport.tpa.accept` | 接受或拒绝 TPA 请求 | true |
 | `bringteleport.tpa.back` | 返回 TPA 前位置 | true |
 
-通配权限：`bringteleport.warp.*`、`bringteleport.tpa.*`、`bringteleport.*`（均为 op 默认）。
+通配权限：`bringteleport.admin.*`、`bringteleport.warp.*`、`bringteleport.tpa.*`、`bringteleport.*`（均为 op 默认）。
 
 ## 安装
 
