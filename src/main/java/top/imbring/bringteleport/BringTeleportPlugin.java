@@ -92,7 +92,7 @@ public final class BringTeleportPlugin extends JavaPlugin implements Listener {
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         if (this.updateChecker != null && this.updateChecker.hasCachedUpdate()
-            && event.getPlayer().hasPermission("bringteleport.update")) {
+            && event.getPlayer().hasPermission("bringteleport.admin.update")) {
             this.updateChecker.notifyPlayer(event.getPlayer());
         }
     }
