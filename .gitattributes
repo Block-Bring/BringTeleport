@@ -1,0 +1,5 @@
+# 提交信息校验脚本必须保持 LF
+# Windows 上 core.autocrlf=true 时，若被转成 CRLF，`#!/bin/sh\r` 会导致 hook 静默失效
+.githooks/commit-msg text eol=lf
+.githooks/scopes     text eol=lf
+.github/workflows/*.yml text eol=lf

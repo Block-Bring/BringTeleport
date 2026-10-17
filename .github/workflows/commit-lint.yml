@@ -1,0 +1,52 @@
+name: commit-lint
+
+# 只校验 PR 范围内的提交：历史上有大量不合规提交，监听 push 会让 master 永久红。
+# 规则直接复用仓库内的 .githooks/commit-msg，不复制一份，避免与本地校验漂移。
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  commit-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # squash merge 后的提交信息 = PR 标题 + 正文，这是本地 hook 覆盖不到的唯一入口
+      - name: 校验 PR 标题与正文
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          { printf '%s\n\n' "$PR_TITLE"; printf '%s\n' "$PR_BODY"; } > "$RUNNER_TEMP/pr-msg"
+          sh ./.githooks/commit-msg "$RUNNER_TEMP/pr-msg"
+
+      - name: 校验 PR 内的每条提交
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if ! commits=$(git rev-list --no-merges "$BASE_SHA..$HEAD_SHA"); then
+            echo "::error::无法解析提交范围 $BASE_SHA..$HEAD_SHA，拒绝静默通过"
+            exit 1
+          fi
+          if [ -z "$commits" ]; then
+            echo "范围内没有提交，跳过"
+            exit 0
+          fi
+          status=0
+          for c in $commits; do
+            git log -1 --format=%B "$c" > "$RUNNER_TEMP/msg"
+            if ! sh ./.githooks/commit-msg "$RUNNER_TEMP/msg"; then
+              echo "::error::提交 $c 不符合提交规范（见上方提示）"
+              status=1
+            fi
+          done
+          exit "$status"
