@@ -1,0 +1,28 @@
+# commit scope 封闭枚举 —— 唯一权威列表
+#
+# 规则:
+#   1. commit message 首行必须带 scope，且只能从这里选，禁止自创近义词。
+#   2. 新增 scope 必须和修改本文件放在同一个提交里，让"造新词"在 diff 里可见。
+#   3. 拿不准时选改动的主要意图；跨模块或仓库级改动统一用 repo。
+#
+# 格式: 每行一个 scope，# 开头为注释。hook 与 CI 都读这一份。
+
+# 功能域
+back         # 死亡返回（DeathBackManager / DeathBackCommand）
+warp         # 路径点：创建、列表、收藏、分享、别名
+tpa          # 玩家间传送请求
+
+# 基础设施
+safe-point   # 安全落点搜索
+db           # 持久化层：表结构、SQL、连接与重试
+command      # 命令注册、Tab 补全、帮助页
+config       # 配置项定义、读盘与迁移
+locale       # 语言文件与消息渲染
+perm         # 权限节点
+
+# 工程
+build        # Gradle、打包、依赖版本
+ci           # CI、Issue 模板、仓库配置
+
+# 兜底
+repo         # 跨模块或仓库级改动（README、LICENSE、AGENTS.md 等）

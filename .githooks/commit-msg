@@ -1,0 +1,138 @@
+#!/bin/sh
+#
+# commit-msg hook —— 校验 commit message 首行
+#
+# 格式: type(scope)!: description
+#   type  必填，11 个固定类型（见下）
+#   scope 必填，只能取自 .githooks/scopes 的封闭枚举
+#   !     可选，表示破坏性变更，此时正文必须有 BREAKING CHANGE:
+#
+# 权威规则: AGENTS.md「Commit 规范」
+# 安装:     git config core.hooksPath .githooks
+
+MSG_FILE="$1"
+
+ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || ROOT=$(pwd)
+SCOPES_FILE="$ROOT/.githooks/scopes"
+ALLOWED_TYPES="feat fix docs style refactor perf test build ci chore revert"
+
+if [ -z "$MSG_FILE" ] || [ ! -f "$MSG_FILE" ]; then
+    echo " ✗ commit-msg: 未收到 message 文件" >&2
+    exit 1
+fi
+
+# 跳过注释行与空行，取第一条有效行
+FIRST_LINE=$(grep -v '^#' "$MSG_FILE" | grep -v '^[[:space:]]*$' | head -n 1)
+
+# git 自动生成的合并 / 回退提交豁免（否则只能用 --no-verify，反而绕过全部校验）
+case "$FIRST_LINE" in
+    Merge\ *|Revert\ \"*)
+        exit 0
+        ;;
+esac
+
+if [ -z "$FIRST_LINE" ]; then
+    echo ""
+    echo " ✗ commit message 为空"
+    echo "   示例: fix(back): 修复返回后位置不同步"
+    echo ""
+    exit 1
+fi
+
+# 校验首行格式（scope 必填；description 必须以非空白字符开头）
+if ! printf '%s\n' "$FIRST_LINE" | grep -q '^[a-z]\+\(([a-z0-9][a-z0-9._/-]*)\)!\{0,1\}: [^[:space:]].*$'; then
+    echo ""
+    echo " ✗ commit message 首行格式错误！"
+    echo "   格式: type(scope): description   （scope 必填，! 用于破坏性变更）"
+    echo "   示例: fix(back): 修复返回后位置不同步"
+    echo "         feat(warp): 支持路径点重命名"
+    echo "         refactor(perm)!: 权限节点收归统一命名空间"
+    echo ""
+    echo "   类型: $ALLOWED_TYPES"
+    if [ -f "$SCOPES_FILE" ]; then
+        echo "   可用 scope: $(grep -v '^[[:space:]]*#' "$SCOPES_FILE" | awk 'NF{print $1}' | tr '\n' ' ')"
+    fi
+    echo ""
+    exit 1
+fi
+
+# 提取各字段
+TYPE=$(printf '%s\n' "$FIRST_LINE" | sed -n 's/^\([a-z]\+\)([a-z0-9][a-z0-9._/-]*)!\{0,1\}: .*/\1/p')
+SCOPE=$(printf '%s\n' "$FIRST_LINE" | sed -n 's/^[a-z]*(\([a-z0-9][a-z0-9._/-]*\))!\{0,1\}: .*/\1/p')
+DESC=$(printf '%s\n' "$FIRST_LINE" | sed -n 's/^[a-z]*(\([a-z0-9][a-z0-9._/-]*\))!\{0,1\}: \(.*\)$/\2/p')
+
+case "$FIRST_LINE" in
+    *')!:'*) BREAKING=1 ;;
+    *)       BREAKING=0 ;;
+esac
+
+# 校验 type
+case " $ALLOWED_TYPES " in
+    *" $TYPE "*)
+        ;;
+    *)
+        echo ""
+        echo " ✗ 未知的 commit type: '$TYPE'"
+        echo "   允许的类型: $ALLOWED_TYPES"
+        echo ""
+        exit 1
+        ;;
+esac
+
+# 校验 scope：封闭枚举
+if [ -f "$SCOPES_FILE" ]; then
+    if ! grep -q "^${SCOPE}[[:space:]]*\(#.*\)\{0,1\}$" "$SCOPES_FILE"; then
+        echo ""
+        echo " ✗ 未知的 commit scope: '$SCOPE'"
+        echo "   scope 是封闭枚举，禁止自创近义词（如 db/database/sql 选 db）"
+        echo "   可用 scope: $(grep -v '^[[:space:]]*#' "$SCOPES_FILE" | awk 'NF{print $1}' | tr '\n' ' ')"
+        echo "   确实缺一个 scope？把它加进 .githooks/scopes 并一起提交"
+        echo ""
+        exit 1
+    fi
+else
+    echo " ✗ 找不到 scope 枚举文件: $SCOPES_FILE" >&2
+    exit 1
+fi
+
+# 校验 description 长度：按字符计（中文算 1 个）
+# 先探测可用的 UTF-8 locale；探测必须在当前 shell 里做，否则结果出不了子 shell
+UTF8_LOC=""
+for loc in C.UTF-8 en_US.UTF-8 zh_CN.UTF-8; do
+    if [ "$(printf '中' | LC_ALL=$loc wc -m 2>/dev/null | tr -d ' ')" = "1" ]; then
+        UTF8_LOC="$loc"
+        break
+    fi
+done
+
+if [ -n "$UTF8_LOC" ]; then
+    DESC_LEN=$(printf '%s' "$DESC" | LC_ALL="$UTF8_LOC" wc -m | tr -d ' ')
+    MAX=100
+    UNIT=字符
+else
+    # 没有可用 UTF-8 locale 时退化为字节计数，上限放宽到 300，避免误杀中文
+    DESC_LEN=$(printf '%s' "$DESC" | LC_ALL=C wc -c | tr -d ' ')
+    MAX=300
+    UNIT=字节
+fi
+
+if [ "$DESC_LEN" -gt "$MAX" ]; then
+    echo ""
+    echo " ✗ description 过长（${DESC_LEN} ${UNIT}，上限 ${MAX}）"
+    echo "   当前: $DESC"
+    echo ""
+    exit 1
+fi
+
+# 破坏性变更必须有 BREAKING CHANGE 正文
+if [ "$BREAKING" = "1" ]; then
+    if ! sed '1d' "$MSG_FILE" | grep -qE '^BREAKING[ -]CHANGE: .+'; then
+        echo ""
+        echo " ✗ 首行用了 '!'，正文必须写明破坏性变更"
+        echo "   在空行后补一行: BREAKING CHANGE: 具体不兼容点与迁移方式"
+        echo ""
+        exit 1
+    fi
+fi
+
+exit 0
