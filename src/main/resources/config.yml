@@ -39,6 +39,12 @@ death-back:
     effort: 2
 tpa:
   timeout: 60
+  request:
+    sound:
+      enabled: true
+      name: block.note_block.bell
+      volume: 1.0
+      pitch: 0.9
   teleport:
     countdown:
       enabled: true

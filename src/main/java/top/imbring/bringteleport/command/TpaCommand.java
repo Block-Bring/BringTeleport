@@ -55,6 +55,12 @@ public final class TpaCommand {
     private static class ConfigCache {
         static long timeoutMs;
 
+        // 收到 TPA 请求时的提示音（默认“当”一声：音符盒铃铛）
+        static boolean requestSoundEnabled;
+        static String requestSoundName;
+        static float requestSoundVolume;
+        static float requestSoundPitch;
+
         // 传送倒计时（与 warp 同款：移动取消、音效、title/chat 显示）
         static boolean countdownEnabled;
         static double countdownDelay;
@@ -85,6 +91,11 @@ public final class TpaCommand {
         static void refresh(BringTeleportPlugin plugin) {
             var config = plugin.getConfig();
             timeoutMs = Math.max(1, (long) (config.getDouble("tpa.timeout", 60.0) * 1000));
+
+            requestSoundEnabled = config.getBoolean("tpa.request.sound.enabled", true);
+            requestSoundName = config.getString("tpa.request.sound.name", "block.note_block.bell");
+            requestSoundVolume = (float) config.getDouble("tpa.request.sound.volume", 1.0);
+            requestSoundPitch = (float) config.getDouble("tpa.request.sound.pitch", 0.9);
 
             countdownEnabled = config.getBoolean("tpa.teleport.countdown.enabled", true);
             countdownDelay = config.getDouble("tpa.teleport.countdown.delay", 3.0);
@@ -264,6 +275,12 @@ public final class TpaCommand {
         target.sendMessage(plugin.getLocaleManager().getMessage(
             here ? "tpa.request.here-received" : "tpa.request.received",
             Map.of("player", escape(requester.getName()))));
+
+        // 收到请求时给被请求者播放提示音，避免错过请求
+        if (ConfigCache.requestSoundEnabled) {
+            target.playSound(target.getLocation(), ConfigCache.requestSoundName, SoundCategory.MASTER,
+                ConfigCache.requestSoundVolume, ConfigCache.requestSoundPitch);
+        }
     }
 
     private static int executeAccept(CommandContext<CommandSourceStack> ctx, BringTeleportPlugin plugin, boolean hasArg) {
