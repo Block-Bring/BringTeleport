@@ -93,9 +93,9 @@ public final class TpaCommand {
             timeoutMs = Math.max(1, (long) (config.getDouble("tpa.timeout", 60.0) * 1000));
 
             requestSoundEnabled = config.getBoolean("tpa.request.sound.enabled", true);
-            requestSoundName = config.getString("tpa.request.sound.name", "block.note_block.bell");
+            requestSoundName = config.getString("tpa.request.sound.name", "entity.experience_orb.pickup");
             requestSoundVolume = (float) config.getDouble("tpa.request.sound.volume", 1.0);
-            requestSoundPitch = (float) config.getDouble("tpa.request.sound.pitch", 0.9);
+            requestSoundPitch = (float) config.getDouble("tpa.request.sound.pitch", 1.0);
 
             countdownEnabled = config.getBoolean("tpa.teleport.countdown.enabled", true);
             countdownDelay = config.getDouble("tpa.teleport.countdown.delay", 3.0);

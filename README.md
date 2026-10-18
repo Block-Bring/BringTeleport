@@ -121,7 +121,7 @@
 | `warp.teleport.success` | 传送成功提示的显示方式与提示音 |
 | `death-back` | 死亡返回开关、复活提示、安全落脚点搜索半径与努力程度（1–3） |
 | `tpa.timeout` | TPA 请求过期时间 |
-| `tpa.request.sound` | 收到 TPA 请求时的提示音（默认音符盒铃铛，即“当”的一声，可关） |
+| `tpa.request.sound` | 收到 TPA 请求时的提示音（默认经验球拾取音，可关） |
 | `tpa.teleport.*` | TPA 传送的倒计时与成功提示（选项同 warp） |
 | `update-checker` | 启动检查开关、定期检查间隔与 Releases API 地址 |
 
