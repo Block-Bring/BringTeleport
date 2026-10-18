@@ -103,7 +103,7 @@ public final class TpaCommand {
             cancelSoundVolume = (float) config.getDouble("tpa.teleport.countdown.cancel-on-move.sound.volume", 1.0);
             cancelSoundPitch = (float) config.getDouble("tpa.teleport.countdown.cancel-on-move.sound.pitch", 1.0);
 
-            successDisplayMode = config.getString("tpa.teleport.success.display", "title");
+            successDisplayMode = config.getString("tpa.teleport.success.display", "both");
             successSoundEnabled = config.getBoolean("tpa.teleport.success.sound.enabled", true);
             successSoundName = config.getString("tpa.teleport.success.sound.name", "entity.player.levelup");
             successSoundVolume = (float) config.getDouble("tpa.teleport.success.sound.volume", 1.0);
