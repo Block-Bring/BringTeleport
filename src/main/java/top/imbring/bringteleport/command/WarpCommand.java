@@ -126,7 +126,7 @@ public final class WarpCommand {
             countdownSoundVolume = (float) config.getDouble("warp.teleport.countdown.sound.volume", 1.0);
             countdownSoundPitch = (float) config.getDouble("warp.teleport.countdown.sound.pitch", 1.0);
 
-            successDisplayMode = config.getString("warp.teleport.success.display", "title");
+            successDisplayMode = config.getString("warp.teleport.success.display", "both");
             successSoundEnabled = config.getBoolean("warp.teleport.success.sound.enabled", true);
             successSoundName = config.getString("warp.teleport.success.sound.name", "entity.player.levelup");
             successSoundVolume = (float) config.getDouble("warp.teleport.success.sound.volume", 1.0);
