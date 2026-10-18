@@ -42,9 +42,9 @@ tpa:
   request:
     sound:
       enabled: true
-      name: block.note_block.bell
+      name: entity.experience_orb.pickup
       volume: 1.0
-      pitch: 0.9
+      pitch: 1.0
   teleport:
     countdown:
       enabled: true
