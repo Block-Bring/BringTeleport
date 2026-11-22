@@ -1,0 +1,30 @@
+name: 🎯 目标
+description: 计划达成的目标或需要完成的工作
+title: "🎯 "
+type: 目标
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: 目标描述
+      description: 想达成什么？是什么背景或需求引出的？
+      placeholder: |
+        例如：补充一套可自动化的回归测试，覆盖 warp、/back 与 TPA 的主要流程。
+    validations:
+      required: true
+
+  - type: textarea
+    id: done
+    attributes:
+      label: 完成标准
+      description: 满足哪些条件就算完成？
+      placeholder: |
+        例如：CI 上能跑通测试，关键路径都有用例，失败时能定位到具体模块。
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: 补充说明
+      description: 相关链接、参考资料或实现思路（可选）

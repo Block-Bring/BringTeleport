@@ -1,13 +1,13 @@
-name: ⚡ 优化 / 任务
+name: ⚡ 优化
 description: 性能优化、代码重构、文档或工程改进
 title: "⚡ "
-type: 任务
+type: 优化
 body:
   - type: textarea
     id: background
     attributes:
       label: 背景
-      description: 为什么要做这件事？有性能数据、代码位置或具体场景更好。
+      description: 为什么要做这个优化？有性能数据、代码位置或具体场景更好。
       placeholder: |
         例如：路径点很多时 /warp tp 会全量扫描目录，主线程偶发卡顿。
     validations:
