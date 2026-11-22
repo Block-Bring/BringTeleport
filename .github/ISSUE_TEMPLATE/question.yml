@@ -1,0 +1,23 @@
+name: ❓ 提问
+description: 使用上的疑问、配置求助
+title: "❓ "
+type: 提问
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: 你的问题
+      description: 描述你想做什么、卡在了哪一步，以及你期望的结果。
+      placeholder: |
+        例如：想给成员只开放公共路径点的传送权限，不知道该给哪些权限节点。
+    validations:
+      required: true
+
+  - type: textarea
+    id: tried
+    attributes:
+      label: 已尝试的办法
+      description: 查过哪些文档？试过哪些配置或命令？可以贴相关配置文件或日志。
+      render: shell
+      placeholder: |
+        例如：已看过 README 的权限表，尝试给 bringteleport.warp.tp，但仍然无法传送。

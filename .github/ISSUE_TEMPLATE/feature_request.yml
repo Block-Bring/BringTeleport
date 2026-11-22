@@ -1,26 +1,30 @@
 name: ✨ 功能建议
-description: 想要个新功能
-labels: [enhancement]
+description: 希望插件新增的能力
 title: "✨ "
+type: 功能
 body:
   - type: textarea
     id: problem
     attributes:
-      label: 相关痛点
-      description: 是什么场景或需求让你想要这个功能？
+      label: 使用场景 / 痛点
+      description: 你在什么情况下觉得现有功能不够用？
+      placeholder: |
+        例如：组队探索时想一次把整队传到同一个路径点，现在只能逐个 /warp tp。
     validations:
       required: true
 
   - type: textarea
     id: solution
     attributes:
-      label: 你想要的解决方案
-      description: 描述一下你理想中这个功能怎么用
+      label: 期望的方案
+      description: 描述理想中怎么用，最好带上命令形式或交互方式
+      placeholder: |
+        例如：/warp tp public home @a 把全队传送到公共路径点 home。
     validations:
       required: true
 
   - type: textarea
     id: alternatives
     attributes:
-      label: 其他方案
-      description: 有没有考虑过其他替代办法？
+      label: 其他替代方案
+      description: 有没有考虑过别的做法？现有命令能否勉强实现？
