@@ -1,0 +1,32 @@
+name: ⚡ 优化 / 任务
+description: 性能优化、代码重构、文档或工程改进
+title: "⚡ "
+type: 任务
+body:
+  - type: textarea
+    id: background
+    attributes:
+      label: 背景
+      description: 为什么要做这件事？有性能数据、代码位置或具体场景更好。
+      placeholder: |
+        例如：路径点很多时 /warp tp 会全量扫描目录，主线程偶发卡顿。
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: 建议方案
+      description: 你希望怎么改？可以贴代码片段或思路。
+      placeholder: |
+        例如：
+        - 缓存路径点索引，仅在增删改时刷新
+        - 把重复的传送前检查抽成公共方法
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: 预期收益
+      description: 预计能带来什么提升？（性能、可维护性、可读性等）
